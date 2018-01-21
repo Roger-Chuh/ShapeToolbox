@@ -25,6 +25,7 @@ function model = objMake(shape,perturbation,varargin)
 % 2016-10-23 - ts - changed saving calling function names from
 %                    dbstack
 % 2017-05-26 - ts - minor change to help. or well, "help"
+% 2018-01-15 - ts - save tilt axis and angle for sphere in prm
   
 %------------------------------------------------------------
 
@@ -88,8 +89,12 @@ for jj = 1:length(stack)
   end
 end
 
-if strcmp(model.shape,'torus')
-  model.prm(ii).rprm = model.opts.rprm;
+switch model.shape
+  case 'sphere'
+    model.prm(ii).tilt_axis = model.opts.tilt_axis;
+    model.prm(ii).tilt_angle = model.opts.tilt_angle;
+  case 'torus'
+    model.prm(ii).rprm = model.opts.rprm;
 end
 
 if model.flags.dosave

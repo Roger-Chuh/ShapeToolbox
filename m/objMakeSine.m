@@ -90,6 +90,19 @@ function model = objMakeSine(shape,cprm,varargin)
 % documentation: 
 %   help objMakePlain;
 % 
+% AXIS 
+% When the model shape is sphere, you can 'tilt' the model coordinate
+% system before adding the sinusoid. The option 'axis' can be used
+% to give the axis with respect to which the model is tilted. The
+% axis is given as a three-element vector. The tilt magnitude is
+% given using the option 'angle' (below).
+%
+% ANGLE
+% The angle by which the model is tilted before adding the sinusoid
+% (see the description of the option 'axis' above).
+% Example:
+% > m = objMakeSine('sphere',...,'axis',[1 0 0],'angle',45);
+%
 % RETURNS:
 % ========
 %
@@ -124,7 +137,8 @@ function model = objMakeSine(shape,cprm,varargin)
 % 2016-03-25 - ts - is now a wrapper for the new objMake
 % 2016-04-08 - ts - re-enabled batch mode
 % 2016-04-14 - ts - help
-
+% 2018-01-18 - ts - included axis & angle to help
+  
 %------------------------------------------------------------
 
 narg = nargin;

@@ -26,6 +26,7 @@ function model = objDefaultStruct(shape)
 % 2017-06-09 - ts - new flags for using perturbation, perturbation
 %                    along normal direction
 % 2017-06-22 - ts - explicitly set coord system for all shapes
+% 2018-01-15 - ts - added tilt axis and angle
   
 % if nargin<2 || isempty(reset)
 %   reset = false;
@@ -97,6 +98,9 @@ function model = objDefaultStruct(shape)
   model.opts.mindist = 0;
   model.opts.locations = {};
 
+  model.opts.tilt_axis = [1 0 0];
+  model.opts.tilt_angle = 0;
+  
   model.flags.dosave = false;
   model.flags.use_rms = false;
   model.flags.use_map = false;

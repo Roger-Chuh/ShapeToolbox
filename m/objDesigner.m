@@ -4,6 +4,18 @@ function objDesigner(nmeshpoints)
 %
 % Usage: objDesigner()
 %        objDesigner(nmeshpoints)
+%
+% A rudimentary graphical tool built on top of the shapetoolbox
+% functions. This can be used to design models and test the effect
+% of different surface perturbations etc. It's mainly useful for
+% quick testing and trying out / learning to use the toolbox. It
+% does not offer all the options that are available in the toolbox
+% functions. For full functionality, it's better to call the
+% objMake*- and other functions from your own code.
+%
+% The optional input argument can be used to set the model size
+% (mesh resolution / number of vertices). If not give, the default
+% is used (see objMakePlain for the default mesh sizes).
   
 % 2016-12-12 - ts - first version
 % 2016-12-13 - ts - second first version
@@ -18,6 +30,7 @@ function objDesigner(nmeshpoints)
 % 2017-11-19 - ts - 'axis equal' before plotting anything caused a
 %                     problem in latest octave (4.2.1); fixed
 % 2017-11-21 - ts - indicate errors (red) when importing/exporting/saving
+% 2018-01-17 - ts - updated help
   
 % TODO
 % print current parameters / command to produce the shape

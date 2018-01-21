@@ -1,10 +1,10 @@
-function h = objShow(obj,func,campos,showaxes)
+function h = objView(obj,func,campos,showaxes)
 
-% OBJSHOW
+% OBJVIEW
 %
-% Usage: h = objShow(model)
-%        h = objShow(model,[viewfunc],[campos],[showaxes])
-%        h = objShow(filename,...)
+% Usage: h = objView(model)
+%        h = objView(model,[viewfunc],[campos],[showaxes])
+%        h = objView(filename,...)
 %
 % View a 3D model returned by one of the make objMake-functions in
 % the toolbox.  Alternatively, attempt to read such a model from a
@@ -16,14 +16,15 @@ function h = objShow(obj,func,campos,showaxes)
 % The optional input argument 'viewfunc' specifies the Octave/Matlab
 % function for showing the object.  Possible values are 'surfl'
 % (default), 'surf',  and 'mesh'.  A further option 'wireframe' is
-% similar to 'mesh' but shows a see-through wireframe model.
+% similar to 'mesh' but shows a see-through wireframe model. Note
+% that not all lighting options etc. might be available on Octave.
 %
 % Examples:
 % > sphere = objMakeSine('sphere');
-% > objShow(sphere)
+% > objView(sphere)
 % 
 % > tor = objMakeNoise('torus');
-% > objShow(tor,'surf')
+% > objView(tor,'surf')
 %
 % The second optional input argument can be used to specify the
 % camera position vector.
@@ -58,15 +59,15 @@ function h = objShow(obj,func,campos,showaxes)
 % 2017-11-16 - ts - don't crash if function 'light' does not exist
 %                    (older versions of matlab); help tweaked
 % 2018-01-20 - ts - rewrote the switching of z and y axes
+% 2018-01-21 - ts - renamed from objshow to objview
+
   
 % TODO
 % https://se.mathworks.com/help/matlab/examples/displaying-complex-three-dimensional-objects.html
 % use patch object?
 % material: shiny etc
 % light position, ambient, specular etc
-  
-  fprintf('OBJSHOW WILL PROBABLY BE REMOVED SOON. USE OBJVIEW.\n');
-  
+    
   if ischar(obj)
     obj = objRead(obj);
   end

@@ -8,6 +8,12 @@
 |toolbox| manual
 ================
 
+NOTE: This manual is severely outdated. Read the readme-file of the
+toolbox, that gives you enough info to get started. From this manual,
+you  might want to look at the examples in the :ref:`gallery`,
+otherwise, it's better to stick to the readme and the command-line
+help of the functions in Octave/Matlab.
+
 |toolbox| is a collection of Octave/Matlab functions for generating 3D
 models of various shapes and saving them in the Wavefront .obj-file
 format.  The shapes available include spheres, planes, cylinders,
