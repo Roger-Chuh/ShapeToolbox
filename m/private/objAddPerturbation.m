@@ -20,6 +20,9 @@ function model = objAddPerturbation(model)
 %                     stack them, add at the end for more flexibility
 % 2017-06-22 - ts - bug fix: plane+noise handled same way as others
 %                   cleaned up sine, noise computation
+% 2018-01-15 - ts - added option to rotate coords before adding
+%                    sine perturbation to a sphere
+% 2018-01-21 - ts - included objRotMat in this file
   
 % TODO: 
 % - objRemCaps for worm
@@ -71,7 +74,22 @@ function model = objAddPerturbation(model)
       mprm = model.prm(model.idx).mprm;
       
       switch model.opts.coords
-        case {'spherical','torus'}
+        case 'spherical'
+          if model.opts.tilt_angle
+            [X,Y,Z] = objSph2XYZ(model.Theta,model.Phi,model.Rbase);
+            ax = model.opts.tilt_axis';
+            ang = pi/180*model.opts.tilt_angle;
+            M = objRotMat(ax,ang);
+            tmp = real([X Y Z]*M);
+            X = tmp(:,1);
+            Y = tmp(:,2);
+            Z = tmp(:,3);
+            [X,Y,Z] = objXYZ2Sph(X,Y,Z);
+          else
+            X = model.Theta;
+            Y = model.Phi;
+          end
+        case {'torus','toroidal'}
           X = model.Theta;
           Y = model.Phi;
         case 'cartesian'
@@ -111,7 +129,7 @@ function model = objAddPerturbation(model)
       mprm = model.prm(model.idx).mprm;
       
       switch model.opts.coords
-        case {'spherical','toroidal','torus'}
+        case {'spherical','torus','toroidal'}
           X = reshape(model.Theta,[model.n model.m])';
           Y = reshape(model.Phi,[model.n model.m])';
           w = 1;
@@ -176,3 +194,42 @@ function model = objAddPerturbation(model)
   
 end
 
+%------------------------------------------------------------
+% Functions
+
+function M = objRotMat(v,alpha)
+
+% OBJROTMAT
+%
+% M = objRotMat(v,alpha)
+  
+% Copyright (C) 2017 Toni Saarela
+% 2017-12-05 - ts - extracted from objmakeworm in its own file
+  
+% Return a 3D rotation matrix to rotate a given vector
+% about vector v by angle alpha.
+
+theta = atan2(v(1),v(3));
+phi = atan2(v(2),sqrt(v(1)^2+v(3)^2));
+
+Ry1 = [ cos(-theta) 0 -sin(-theta)
+       0          1 0
+      sin(-theta) 0 cos(-theta)];
+
+Rx1 = [1 0         0
+      0 cos(phi) sin(phi)
+      0 -sin(phi)  cos(phi)];
+
+Rz = [cos(alpha) sin(alpha) 0
+      -sin(alpha)  cos(alpha) 0
+      0           0          1];
+
+Rx2 = [1 0         0
+      0 cos(-phi) sin(-phi)
+      0 -sin(-phi)  cos(-phi)];
+
+Ry2 = [ cos(theta) 0 -sin(theta)
+       0          1 0
+      sin(theta) 0 cos(theta)];
+
+M = Ry1 * Rx1 * Rz * Rx2 * Ry2;

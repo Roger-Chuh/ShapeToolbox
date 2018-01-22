@@ -1,6 +1,6 @@
 function s = objSave(s)
 
-% OBJMODEL
+% OBJSAVE
 %
 % Usage: model = objSave(model)
 %
@@ -8,6 +8,31 @@ function s = objSave(s)
 % texture coordinates, faces, and so forth; and to write the model
 % to a file.
 %
+% All the objMake*-functions can save models (just define a file
+% name when calling the function, or set the save-option to true;
+% see `help objMakePlain`). Sometimes you might need several function
+% calls on the same model (such as when adding several different
+% kinds of perturbation), and then only save the model once you're
+% done. In that case objSave() is useful.
+%
+% To set a file name for the model, give it when calling one of the
+% objMake*-functions, while also setting the save-option to false:
+% 
+% > m = objMakeSine('sphere',...,'mysphere.obj','save',false);
+% > % more work on the model
+% > objSave(m)
+%
+% Alternatively, as the model is just Matlab structure, you can
+% change the 'filename'-field to whatever string you want to use as
+% a filename:
+%
+% > m = objMakeSine(...)
+% > m.filename = 'mymodel.obj'
+% > objSave(m)
+%
+% If you don't set a file name and call objSave(), the default file
+% name for the model will be used (depends on the base shape,
+% 'sphere.obj', 'cylinder.obj' etc).
 
 % I'd love to start the names of these helper functions with an
 % underscore (_) to make it clear they're helper functions not to
@@ -42,6 +67,7 @@ function s = objSave(s)
 % 2016-06-12 - ts - don't return anything if no output argumets set
 % 2016-10-23 - ts - rewrote documenting the function call stack info
 % 2016-12-18 - ts - new order or perturbation parameters 
+% 2018-01-17 - ts - updated help
   
 m = s.m;
 n = s.n;

@@ -31,7 +31,8 @@ function model = objParseArgs(model,par)
 %                   custom option names now 'custom' and 'custompar'
 % 2016-04-12 - ts - minor fixes
 % 2017-06-22 - ts - allow only changing the coord system of disk
-
+% 2018-01-19 - ts - added option to set filename using name-value syntax
+  
 % Flag to indicate whether uv-coordinate computation was set to false
 % explicitly.  This is used so that the option 'uvcoords' can be used
 % to override the effect of option 'material', which sets the
@@ -296,6 +297,23 @@ if ~isempty(par)
            else
              error('No value or a bad value given for option ''max''.');
            end
+        case 'axis'
+           if ii<length(par) && isnumeric(par{ii+1})
+             ii = ii+1;
+             ax = par{ii};
+             ax = ax(:)';
+             ax = ax / norm(ax);
+             model.opts.tilt_axis = ax;
+           else
+             error('No value or a bad value given for option ''axis''.');
+           end
+         case 'angle'
+           if ii<length(par) && isscalar(par{ii+1})
+             ii = ii+1;
+             model.opts.tilt_angle = par{ii};
+           else
+             error('No value or a bad value given for option ''max''.');
+           end
         case 'coords'
           if isempty(strmatch(model.shape,{'disk','disc'},'exact'))
             error(sprintf('Cannot change the coordinate system of %s.',model.shape));
@@ -312,6 +330,14 @@ if ~isempty(par)
           else
              error('No value or a bad value given for option ''coords''.');
           end
+        case 'filename'
+          if ii<length(par) && ischar(par{ii+1})
+            ii = ii+1;
+            model.filename = par{ii};
+            model.flags.dosave = true;
+          else
+            error('No value or a bad value given for option ''filename''.');
+          end     
         otherwise
           model.filename = par{ii};
           model.flags.dosave = true;
