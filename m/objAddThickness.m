@@ -1,5 +1,14 @@
 function model = objAddThickness(model,w)
   
+% OBJADDTHICKNESS
+%
+% Usage: model = objAddThickness(model,w)
+%
+% Add wall thickness w to a model.
+  
+% Copyright (C) 2017, 2018 Toni Saarela
+% 2017-12-22 - ts - first version
+% 2018-01-18 - ts - help
 
   switch model.shape
     case 'sphere'
@@ -18,7 +27,7 @@ function model = objAddThickness(model,w)
       
       model.m = 2*model.m;
       
-    case 'plane'
+    case {'plane', 'disk'}
 
       X = reshape(model.X,[model.n model.m])';
       Y = reshape(model.Y,[model.n model.m])';
