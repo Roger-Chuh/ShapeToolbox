@@ -411,7 +411,7 @@ There is a very outdated manual at http://saarela.github.io/ShapeToolbox. It's a
 
 #### Octave does not find functions in private directory
 
-The functions meant to be called by the user are in the m-directory of the toolbox. There are additional functions located in `m/private`, called by the main toolbox functions. Sometimes, when a toolbox function calls a private functions that calls another private function, Octave gives an error message that the function is not found, something like:
+The functions meant to be called by the user are in the m-directory of the toolbox. There are additional functions located in `m/private`, called by the main toolbox functions. Sometimes, when a toolbox function calls a private function that calls another private function, Octave gives an error message that the function is not found, something like:
 
 ```matlab
 error: no such file, 'some_path/private/objSomething.m'
