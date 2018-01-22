@@ -80,6 +80,7 @@ function model = objDefaultStruct(shape)
     model.flags.caps = false;
     model.flags.comp_uv = false;
     model.flags.comp_normals = false;
+    model.flags.thickwalls = false;
     model.idx = 1;
   elseif isstruct(shape)
     % We got a structure as input, so we reset and update an existing model

@@ -18,7 +18,7 @@ n = s.n;
 
 
 switch s.shape
-  case {'sphere','cylinder','revolution','extrusion','worm'}
+  case 'sphere'
     s.faces = zeros((m-1)*n*2,3);
     F = ([1 1]'*[1:n]);
     F = F(:) * [1 1 1];
@@ -27,8 +27,32 @@ switch s.shape
     for ii = 1:m-1
       s.faces((ii-1)*n*2+1:ii*n*2,:) = (ii-1)*n + F;
     end
+  case {'cylinder','revolution','extrusion','worm'}
+    if ~s.flags.thickwalls
+      s.faces = zeros((m-1)*n*2,3);
+    else
+      s.faces = zeros(m*n*2,3);
+    end
+    F = ([1 1]'*[1:n]);
+    F = F(:) * [1 1 1];
+    F(:,2) = F(:,2) + [repmat([n+1 1]',[n-1 1]); [1 1-n]'];
+    F(:,3) = F(:,3) + [repmat([n n+1]',[n-1 1]); [n 1]'];
+    for ii = 1:m-1
+      s.faces((ii-1)*n*2+1:ii*n*2,:) = (ii-1)*n + F;
+    end
+    
+    if s.flags.thickwalls
+      F = (m-1)*n + F;
+      F(F>m*n) = F(F>m*n) - m*n;
+      s.faces((m-1)*n*2+1:m*n*2,:) = F;
+    end
+    
   case {'plane','disk'}
-    s.faces = zeros((m-1)*(n-1)*2,3);
+    if ~s.flags.thickwalls
+      s.faces = zeros((m-1)*(n-1)*2,3);
+    else
+      s.faces = zeros(m*(n-1)*2,3);
+    end
     ftmp = [[1 1]'*[1:n-1]];
     F(:,1) = ftmp(:);
     % OR:
@@ -41,10 +65,37 @@ switch s.shape
     for ii = 1:m-1
       s.faces((ii-1)*(n-1)*2+1:ii*(n-1)*2,:) = (ii-1)*n + F;
     end
-    
-    if s.flags.caps
-      s.faces = [s.faces; 1 n m*n; 1 m*n (m-1)*n+1];
+
+    if s.flags.thickwalls
+      F = (m-1)*n + F;
+      F(F>m*n) = F(F>m*n) - m*n;
+            
+      s.faces((m-1)*(n-1)*2+1:m*(n-1)*2,:) = F;
+      
+      % TODO: compute correct size above, now it doesn't include
+      % the sides
+      
+      ftmp = [[1 1]'*[(m-1):-1:(m/2+1)]];
+      F(:,1) = ftmp(:);
+      ftmp = [1:(m/2-1); 0:(m/2-2)];
+      F(:,2) = ftmp(:);
+      ftmp = [(m-2):-1:(m/2); 1:(m/2-1)];
+      F(:,3) = ftmp(:);
+      s.faces = [s.faces; F*n+1];
+      
+      ftmp = [[1 1]'*[1:(m/2-1)]];
+      F(:,1) = ftmp(:);
+      ftmp = [(m-1):-1:(m/2+1); m:-1:(m/2+2)];
+      F(:,2) = ftmp(:);
+      ftmp = [2:(m/2); (m-1):-1:(m/2+1)];
+      F(:,3) = ftmp(:);
+      s.faces = [s.faces; F*n];
+      
     end
+    
+    % if s.flags.caps
+    %   s.faces = [s.faces; 1 n m*n; 1 m*n (m-1)*n+1];
+    % end
     
   case 'torus'
     s.faces = zeros(m*n*2,3);
