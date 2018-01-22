@@ -3,6 +3,10 @@ function m = objScale(m,scale)
 % OBJSCALE
 %
 % m = objScale(m,scale)
+%
+% Scale an object. This might be marginally useful when prepping
+% models for 3D printing. (When rendering, you can always scale the
+% models when importing them to the scene to be rendered.)
   
 % Copyright (C) 2017, 2018 Toni Saarela
 % 2017-12-21 - ts - first version

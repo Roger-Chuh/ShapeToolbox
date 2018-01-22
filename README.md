@@ -392,7 +392,11 @@ Good luck.
 
 ### Prepare models for 3D printing
 
-TODO. wall thickness, scaling, cutting.
+There are a few functions that might be useful when prepping models for printing on a 3D printer. The models are they are spat out by the `objMake*`-functions are just "shells", that is, define only the outer boundary of the model shape. For 3D printing, the model walls need to have a thickness. For this, use `objAddThickness`. Also, you might want to scale the model. The models have default sizes that are (close to) unity in arbitrary units. For example, the default base radius of the sphere is one. A 3D printing software might interpret this as one inch or one millimeter, but in any case, it is unlikely to be what you want. Use `objScale` to scale it. Finally, with some printing techniques (SLA) it might not be a good idea to try to print a hollow sphere because of a possible "suction effect" between the model and the bottom of the resin tank. You can use `objCutSphere` to cut out a piece of a sphere to make it more printable in this case.
+
+```matlab
+% TODO: Examples
+```
 
 ### Materials, vertex groups, texture mapping
 
