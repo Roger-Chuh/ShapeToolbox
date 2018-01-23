@@ -18,6 +18,7 @@ function objBlendGui(m1,m2)
 % 2017-06-04 - ts - cleaned help (was basically the objBlend help).
 % 2017-11-17 - ts - fixes in passing axes handles---no idea how it
 %                    actually worked in matlab with those bugs
+% 2018-01-23 - ts - use objview instead of objshow
   
 % TODO:
 
@@ -155,9 +156,9 @@ function updateBlend(src,event,fh,th,ah)
     mblend = objBlend(m1,m2,1-w);
     axes(ah(2));
     try
-      objShow(mblend,[],get(ah(2),'CameraPosition'));
+      objView(mblend,[],get(ah(2),'CameraPosition'));
     catch
-      objShow(mblend);
+      objView(mblend);
     end
   else
     mblend = [];
@@ -173,15 +174,15 @@ function resetView(src,event,fh,ah)
 
   if ~isempty(m1)
     axes(ah(1));
-    objShow(m1);
+    objView(m1);
   end
   if ~isempty(mblend)
     axes(ah(2));
-    objShow(mblend);
+    objView(mblend);
   end  
   if ~isempty(m2)
     axes(ah(3));
-    objShow(m2);
+    objView(m2);
   end
 end
 

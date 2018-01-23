@@ -27,6 +27,9 @@ function model = objDefaultStruct(shape)
 %                    along normal direction
 % 2017-06-22 - ts - explicitly set coord system for all shapes
 % 2018-01-15 - ts - added tilt axis and angle
+% 2018-01-23 - ts - renamed fields for material and file
+%                   moved material and normals fields so that they
+%                   are set to empty only for a new model
   
 % if nargin<2 || isempty(reset)
 %   reset = false;
@@ -76,6 +79,9 @@ function model = objDefaultStruct(shape)
     end
     model.shape = shape;
     model.filename = [model.shape,'.obj'];
+    model.mtl.file = '';
+    model.mtl.name = '';
+    model.normals = [];
     model.flags.new_model = true;
     model.flags.caps = false;
     model.flags.comp_uv = false;
@@ -93,9 +99,6 @@ function model = objDefaultStruct(shape)
     error('Argument ''shape'' has to be a string or a model structure.');
   end
 
-  model.mtlfilename = '';
-  model.mtlname = '';
-  model.normals = [];
   model.opts.mindist = 0;
   model.opts.locations = {};
 

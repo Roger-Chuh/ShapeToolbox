@@ -68,6 +68,7 @@ function s = objSave(s)
 % 2016-10-23 - ts - rewrote documenting the function call stack info
 % 2016-12-18 - ts - new order or perturbation parameters 
 % 2018-01-17 - ts - updated help
+% 2018-01-23 - ts - updated writing of material file and material name
   
 m = s.m;
 n = s.n;
@@ -178,10 +179,14 @@ end
 
 fprintf(fid,'#\n# Phase and angle (if present) are in radians above.\n');
 
-if ~isempty(s.mtlfilename)
-  fprintf(fid,'\n# Materials:\nmtllib %s\nusemtl %s\n',s.mtlfilename,s.mtlname);
-elseif ~isempty(s.mtlname)
-  fprintf(fid,'\n# Materials:\nusemtl %s\n',s.mtlname);
+if ~isempty(s.mtl.file) || ~isempty(s.mtl.name)
+  fprintf(fid,'\n# Materials:\n');
+  if ~isempty(s.mtl.file)
+    fprintf(fid,'mtllib %s\n',s.mtl.file);
+  end
+  if ~isempty(s.mtl.name)
+    fprintf(fid,'usemtl %s\n',s.mtl.name);
+  end
 end
 
 fprintf(fid,'\n# Vertices:\n');

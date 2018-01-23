@@ -60,7 +60,7 @@ function h = objView(obj,func,campos,showaxes)
 %                    (older versions of matlab); help tweaked
 % 2018-01-20 - ts - rewrote the switching of z and y axes
 % 2018-01-21 - ts - renamed from objshow to objview
-
+% 2018-01-23 - ts - work-around to get correct view position in octave
   
 % TODO
 % https://se.mathworks.com/help/matlab/examples/displaying-complex-three-dimensional-objects.html
@@ -155,7 +155,15 @@ function h = objView(obj,func,campos,showaxes)
       set(gca,'CameraUpVector',[0 0 1]);
       % set(gca,'CameraUpVector',[0 0 1],...
       %       'CameraUpVectorMode','manual',...
-      %       'CameraPosition',campos);      
+      %       'CameraPosition',campos);
+      
+      % I think the view function in Octave ignores the fact that
+      % we reverse the y-direction (really z in our coords). So we
+      % have to flip the sign of y (z) in the camera position
+      % vector. hacks galore.
+      
+      campos(2) = -campos(2);
+      
       view(campos);
       rotate3d on
     catch

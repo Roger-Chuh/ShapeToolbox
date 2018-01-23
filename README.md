@@ -124,8 +124,8 @@ To change the parameters of the sinusoid (see `help objMakeSine` for explanation
 m1 = objMakeSine('sphere',[8 90 90 .1])
 m2 = objMakeSine('sphere',[8 60 0 .05])
 figure
-subplot(1,2,1); objShow(m1)
-subplot(1,2,2); objShow(m2)
+subplot(1,2,1); objView(m1)
+subplot(1,2,2); objView(m2)
 ```
 
 To save a model to a file (Wavefront obj format), you have a few options. First, set the option `save` to `true` and the model will be save with the default file name (`'sphere.obj'`, `'plane.obj'`, `'cylinder.obj'` etc.). Second, simply give a file name as a string when calling an `objMake*`-function:
@@ -403,7 +403,7 @@ m = objCutSphere(m,16);
 m = objAddThickness(m,5);
 % Set a new file name
 m = objSet(m,'filename','sphere_for_print');
-% SAve and view
+% Save and view
 objSave(m);
 objView(m);
 ```

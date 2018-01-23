@@ -31,7 +31,8 @@ function objDesigner(nmeshpoints)
 %                     problem in latest octave (4.2.1); fixed
 % 2017-11-21 - ts - indicate errors (red) when importing/exporting/saving
 % 2018-01-17 - ts - updated help
-  
+% 2018-01-23 - ts - use objview instead of objshow
+
 % TODO
 % print current parameters / command to produce the shape
 % load existing / saved model to gui
@@ -901,7 +902,7 @@ function objDesigner(nmeshpoints)
     
   % m = objMakeNoise('sphere');
   % axes(h.preview.ax);
-  % objShow(m); 
+  % objView(m); 
   
 end % End main program
 
@@ -1166,9 +1167,9 @@ function updatePrm(src,event,hPrm,hPreview,hCurve,hSpine)
   end % is perturbations not empty
   axes(hPreview.ax);
   try
-    objShow(m,[],get(hPreview.ax,'CameraPosition'));
+    objView(m,[],get(hPreview.ax,'CameraPosition'));
   catch
-    objShow(m);
+    objView(m);
   end
   setappdata(hPreview.f,'model',m);
 end
@@ -1597,7 +1598,7 @@ function resetView(src,event,fh,ah)
   m = getappdata(fh,'model');
   showaxes = get(ah,'Visible');
   axes(ah);
-  objShow(m);
+  objView(m);
   if strcmp(lower(showaxes),'on')
     set(ah,'Visible','On');
     xlabel('x');

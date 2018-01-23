@@ -83,16 +83,17 @@ function model = objMakePlain(shape,varargin)
 % directions.  Example: 
 %  objMakePlain(...,'npoints',[64 64],...)
 % 
-% MATERIAL
-% Name of the material for the model and optionally the name of the
-% material library (.mtl) file.  Given as a string (material only)
-% or a cell array of length two (material and file), in which case
-% the elements of the cell array are two strings, the first one for
-% the material name and the second for the material library file.
-% This option forces the option uvcoords (see below) to true.
+% MTL (OR MATERIAL)
+% Name of the material for the model, given as a string.  This option
+% forces the option uvcoords (see below) to true.
 % Example:
-% objMakePlain(...,'material','mymaterial',...)
-% objMakePlain(...,'material',{'mymaterial','matfile.mtl'},...)
+%  objMakePlain(...,'mtl','mymaterial',...)
+%
+% MTLFILE (OR MATERIALFILE)
+% Name of the material library (.mtl) file (a string).  This option
+% forces the option uvcoords (see below) to true.
+% Example:
+%  objMakePlain(...,'mtlfile','matfile.mtl',...)
 %
 % UVCOORDS
 % Boolean, toggles the computation of texture (uv) coordinates
@@ -258,6 +259,7 @@ function model = objMakePlain(shape,varargin)
 % 2016-04-08 - ts - re-enabled batch mode
 % 2016-04-14 - ts - help
 % 2017-05-26 - ts - help
+% 2018-01-23 - ts - updated material definitions in help
   
 %------------------------------------------------------------
 
