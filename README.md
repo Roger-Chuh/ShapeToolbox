@@ -12,7 +12,7 @@ The toolbox is very limited in the kinds of shapes it can produce. The main purp
 
 ## Download and install
 
-The toolbox should work with resonably recent versions fo both GNU Octave and Matlab (not all features might work on one or the other), on GNU/Linux, Mac OS X, and Windows (not really tested on Windows). No guarantees.
+The toolbox should work with resonably recent versions of both GNU Octave and Matlab (not all features might work on one or the other), on GNU/Linux, Mac OS X, and Windows (not really tested on Windows). No guarantees.
 
 If you have `git` installed, grab the code using it:
 
@@ -255,9 +255,9 @@ Next, use that function as input to `objMakeCustom`. We add perturbations at thr
 % bubbles of different size.  In each row, the first parameter is the
 % number of bubbles, the second is a cut-off value, and the third is
 % the radius.  The cut-off and radius are the same in this case.
-prm = [24 .15 .15;              % 24 large bubbles
-       120 .1 .1;               % 120 medium ones
-       1200 .03 .03],...        % and 1200 small bubbles
+prm = [24 .15 .15;         % 24 large bubbles
+       120 .1 .1;          % 120 medium ones
+       1200 .03 .03];      % and 1200 small bubbles
 
 % Now give the function handle and the parameters as input to objMakeCustom:
 objMakeCustom('plane',...
@@ -368,7 +368,7 @@ objView(ext);
 
 You can also combine the `'rcurve'` and `'ecurve'` options. That is, a surface of revolution can also have an extrusion profile and vice versa.
 
-The worm-shape works pretty much the same way (define the spine-options to define its trajectory in 3D space), and it can also have a revolution and extrusion profiles.
+The worm-shape works pretty much the same way (use the spine-options to define its trajectory in 3D space), and it can also have a revolution and extrusion profiles.
 
 For now, that's it. For further guidance, see `help objMakePlain`, and there the sections for `RCURVE, ECURVE` and `SPINEX, SPINEZ, SPINEY`. Also, you might want to play with `objDesigner`, which is a graphical tool for designing shapes, and let's you see the effects of various parameters immediately.
 
@@ -386,17 +386,29 @@ You can also use the graphical tool `objBlendGui` to test the effect of blending
 
 There are two graphical interfaces, `objDesigner` and `objBlendGui`. These are not covered here in more detail yet. Just try them out and, well, good luck. If nothing happens in `objDesigner` when you change things, try hitting the `Update` button. If things crash, don't be surprised.
 
-These are really the latest examples of what modern, cutting-edge user-interface design has to offer. Hours of usability studies are condensed into these babies.
-
 Good luck.
 
 ### Prepare models for 3D printing
 
-There are a few functions that might be useful when prepping models for printing on a 3D printer. The models are they are spat out by the `objMake*`-functions are just "shells", that is, define only the outer boundary of the model shape. For 3D printing, the model walls need to have a thickness. For this, use `objAddThickness`. Also, you might want to scale the model. The models have default sizes that are (close to) unity in arbitrary units. For example, the default base radius of the sphere is one. A 3D printing software might interpret this as one inch or one millimeter, but in any case, it is unlikely to be what you want. Use `objScale` to scale it. Finally, with some printing techniques (SLA) it might not be a good idea to try to print a hollow sphere because of a possible "suction effect" between the model and the bottom of the resin tank. You can use `objCutSphere` to cut out a piece of a sphere to make it more printable in this case.
+There are a few functions that might be useful when prepping models for printing on a 3D printer. The models as they are spat out by the `objMake*`-functions are just "shells", that is, define only the outer boundary of the model shape. For 3D printing, the model walls need to have a thickness (of course you could print a solid sphere, as well as some other shapes, but that would be wasteful, and to a plane you would need to add some thickness to print anyway). For this, use `objAddThickness`. Also, you might want to scale the model. The models have default sizes that are (close to) unity in arbitrary units. For example, the default sphere and cylinder base radius is one, and default plane width is one. A 3D printing software might interpret this as one inch or one millimeter, but in any case, it is unlikely to be what you want. Use `objScale` to scale it. Finally, with some printing techniques (SLA at least) it might not be a good idea to try to print a hollow sphere because of a possible "suction effect" between the model and the bottom of the resin tank. You can use `objCutSphere` to cut out a piece of a sphere to make it more printable in this case.
 
 ```matlab
-% TODO: Examples
+% Make a sphere with bumps and dents
+m = objMakeBump('sphere',[50 pi/16 .1; 50 pi/16 -.1]);
+% Scale to a bigger size
+m = objScale(m,20);
+% Cut a piece out
+m = objCutSphere(m,16);
+% Add thickness to the wall
+m = objAddThickness(m,5);
+% Set a new file name
+m = objSet(m,'filename','sphere_for_print');
+% SAve and view
+objSave(m);
+objView(m);
 ```
+
+NOTE: These functions are really meant to be the last thing you do to a model (in ShapeToolbox) before you print it or import it to some other software to fix/inspect/modify and then print. Prepare your model using the `objMake*`-functions, `objSet`, and whatever else you might need. Then do whatever prepping is needed using these functions. After that, you can use `objSet` to change the filename, for example, but don't try to do anything too fancy. As a general rule, make the model first, then modify for printing, then keep modifications (using ShapeToolbox) at a minimum.
 
 ### Materials, vertex groups, texture mapping
 
@@ -425,10 +437,6 @@ This happens randomly, most of the time it does not happen. It if does, just try
 
 (In both Matlab and Octave documentation it is said that functions in a private directory are visible only to the fuctions in their parent directory. I have not found a mention of what the specification is for private functions calling each other.)
 
-#### Can I design my new house with this?
-
-You can, but you probably shouldn't. It would end up looking funny, and would probably not be very safe to live in.
-
 #### I didn't read the documentation and I don't know how to do X. What should I do?
 
 Read the documentation.
@@ -448,6 +456,10 @@ Oh, please.
 #### No, really
 
 Not with this language. Maybe using another language later.
+
+#### Can I design my new house with this?
+
+You can, but you probably shouldn't. It would end up looking funny, and would probably not be very safe to live in.
 
 #### Why is y up? z should be up.
 

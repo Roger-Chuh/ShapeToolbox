@@ -16,8 +16,6 @@ function model = objSet(model,varargin)
 % 'uvcoords'
 % 'normals'
 % 'save'
-% 'rcurve'
-% 'ecurve'
 % 'caps'
 % 'spinex', 'spinez', spiney'
 % 'scaley, 'y'
@@ -60,10 +58,16 @@ function model = objSet(model,varargin)
 % Copyright (C) 2018 Toni Saarela
 % 2018-01-17 - ts - first version
 % 2018-01-19 - ts - added option to set filename using name-value syntax
-
+% 2018-01-23 - ts - removed rcurve, ecurve from the options
+%                    (currently can't change them in an existing model)
+%                   only call other functions (updateperturbs,
+%                    makevertices...) if required by the modification
+  
   uv_explicit_false = false;
   save_explicit_false = false;
 
+  redo = [0 0 0]; % [coords perturb vertices]
+  
   par = varargin;
   
   if ~isempty(par)
@@ -111,28 +115,28 @@ function model = objSet(model,varargin)
             else
               error('No value or a bad value given for option ''save''.');
             end
-          case 'rcurve'
-            if ~model.flags.new_model
-              error('You cannot change the option ''rcurve'' in an existing model.');
-            end
-            if ii<length(par) && isnumeric(par{ii+1})
-              ii = ii+1;
-              model.rcurve = par{ii};
-              model.rcurve = model.rcurve(:)';
-            else
-              error('No value or a bad value given for option ''rcurve''.');
-            end
-          case 'ecurve'
-            if ~model.flags.new_model
-              error('You cannot change the option ''ecurve'' in an existing model.');
-            end
-            if ii<length(par) && isnumeric(par{ii+1})
-              ii = ii+1;
-              model.ecurve = par{ii};
-              model.ecurve = model.ecurve(:)';
-            else
-              error('No value or a bad value given for option ''ecurve''.');
-            end
+          % case 'rcurve'
+          %   if ~model.flags.new_model
+          %     error('You cannot change the option ''rcurve'' in an existing model.');
+          %   end
+          %   if ii<length(par) && isnumeric(par{ii+1})
+          %     ii = ii+1;
+          %     model.rcurve = par{ii};
+          %     model.rcurve = model.rcurve(:)';
+          %   else
+          %     error('No value or a bad value given for option ''rcurve''.');
+          %   end
+          % case 'ecurve'
+          %   if ~model.flags.new_model
+          %     error('You cannot change the option ''ecurve'' in an existing model.');
+          %   end
+          %   if ii<length(par) && isnumeric(par{ii+1})
+          %     ii = ii+1;
+          %     model.ecurve = par{ii};
+          %     model.ecurve = model.ecurve(:)';
+          %   else
+          %     error('No value or a bad value given for option ''ecurve''.');
+          %   end
           case 'caps'
             if ii<length(par) && isscalar(par{ii+1})
               ii = ii + 1;
@@ -145,6 +149,7 @@ function model = objSet(model,varargin)
               ii = ii+1;
               model.spine.x = par{ii};
               model.spine.x = model.spine.x(:)';
+              redo([1 3]) = 1;
             else
               error('No value or a bad value given for option ''spinex''.');
             end
@@ -153,6 +158,7 @@ function model = objSet(model,varargin)
               ii = ii+1;
               model.spine.z = par{ii};
               model.spine.z = model.spine.z(:)';
+              redo([1 3]) = 1;
             else
               error('No value or a bad value given for option ''spinez''.');
             end
@@ -162,6 +168,7 @@ function model = objSet(model,varargin)
               model.spine.y = par{ii};
               model.spine.y = model.spine.y(:)';
               model.flags.scaley = false;
+              redo([1 3]) = 1;
             else
               error('No value or a bad value given for option ''spiney''.');
             end
@@ -169,6 +176,7 @@ function model = objSet(model,varargin)
             if ii<length(par) && isscalar(par{ii+1})
               ii = ii+1;
               model.flags.scaley = par{ii};
+              redo([1 3]) = 1;
             else
               error('No value or a bad value given for option ''scaley''.');
             end
@@ -177,6 +185,7 @@ function model = objSet(model,varargin)
               ii = ii+1;
               model.y = par{ii};
               model.y = model.y(:)';
+              redo([1 3]) = 1;
             else
               error('No value or a bad value given for option ''y''.');
             end
@@ -185,6 +194,7 @@ function model = objSet(model,varargin)
               ii = ii+1;
               tmp = par{ii};
               model.flags.use_perturbation = logical(tmp(:)');
+              redo([2 3]) = 1;
             else
               error('No value or a bad value given for option ''use_perturbation''.');
             end
@@ -223,8 +233,15 @@ function model = objSet(model,varargin)
   
   % model = objParseArgs(model,par);
   
-  model = objUpdatePerturbations(model);
-  model = objMakeVertices(model);
+  if redo(1)
+    model = objSetCoords(model);
+  end
+  if redo(2)
+    model = objUpdatePerturbations(model);
+  end
+  if redo(3)
+    model = objMakeVertices(model);
+  end
   
 end
 
