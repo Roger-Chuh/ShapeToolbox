@@ -7,7 +7,8 @@ function model = objInterpCurves(model)
 % Copyright (C) 2015 Toni Saarela
 % 2015-06-08 - ts - first version
 % 2015-10-08 - ts - added interpolation of the 'spine' curves
-
+% 2018-02-03 - ts - check for custom spine flag before interp
+  
 if isfield(model,'rcurve')
   nrcurve = length(model.rcurve);
   if nrcurve~=model.m
@@ -23,20 +24,24 @@ if isfield(model,'ecurve')
 end
 
 %if ~all(model.spine.x==0)
+if model.flags.custom_spine(1)
   nx = length(model.spine.x);
   if nx~=model.m
     model.spine.x = interp1(linspace(0,1,nx),model.spine.x,linspace(0,1,model.m));
   end
-%end
+end
 
 %if ~all(model.spine.z==0)
+if model.flags.custom_spine(3)
   nz = length(model.spine.z);
   if nz~=model.m
     model.spine.z = interp1(linspace(0,1,nz),model.spine.z,linspace(0,1,model.m));
   end
-%end
+end
 
+if model.flags.custom_spine(2)
   ny = length(model.spine.y);
   if ny~=model.m
     model.spine.y = interp1(linspace(0,1,ny),model.spine.y,linspace(0,1,model.m));
   end
+end

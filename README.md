@@ -6,7 +6,7 @@ This is a work in progress. Things might change quickly making old things not wo
 
 ## Purpose
 
-ShapeToolbox is a set of tools for creating polygon meshes of 3D objects mainly intended for vision science experiments. The toolbox provides a handful of very simple 'base shapes' that can then be perturbed in different ways---such as by adding sinusoidal or noisy modulations to the surfaces, adding bumps of using custom matrices, functions, or images to perturb the shape.
+ShapeToolbox is a set of tools for creating polygon meshes of 3D objects mainly intended for vision science experiments. The toolbox provides a handful of very simple 'base shapes' that can then be perturbed in different ways---such as by adding sinusoidal or noisy modulations to the surfaces, adding bumps or using custom matrices, functions, or images to perturb the shape.
 
 The toolbox is very limited in the kinds of shapes it can produce. The main purpose is to provide a tool for producing stimuli for vision science and give the user fine, parametric control over the shape and surface parameters. 
 
@@ -98,7 +98,7 @@ objGroup
 
 ### GUI type things
 
-There are a couple of graphical tools to aid in the design of models, although they offer limited functionality. The first, `objDesigner` can be used to create and perturb models and see the result in real time. The second, `objBlendGui` gives a graphical tool to blend two models in whatever proportions you choose.
+There are a couple of graphical tools to aid in the design of models, although they offer limited functionality. The first, `objDesigner` can be used to create and perturb models and see the result in real time. The second, `objBlendGui` gives a graphical tool to blend two models in whatever proportions you choose. These might work only on Matlab, with Octave expect trouble.
 
 ```
 objDesigner
@@ -114,7 +114,7 @@ To make a shape, choose the `objMake*`-function based on the type of surface per
 ```matlab
 % Make a shape:
 m = objMakeSine('sphere')
-% View it:
+% View it (use mouse to rotate):
 objView(m)
 ```
 
@@ -368,7 +368,26 @@ objView(ext);
 
 You can also combine the `'rcurve'` and `'ecurve'` options. That is, a surface of revolution can also have an extrusion profile and vice versa.
 
-The worm-shape works pretty much the same way (use the spine-options to define its trajectory in 3D space), and it can also have a revolution and extrusion profiles.
+The worm-shape works pretty much the same way (use the spine-options to define its trajectory in 3D space), and it can also have a revolution and extrusion profiles. Below is a short example, which also illustrates using the `scaley` and `radius` -options and displays the axes when viewing the model.
+
+```matlab
+y = linspace(0,2*pi,256);
+x = sin(y);
+
+% Make two models. In the first, the model's 'height' is the size in the y-direction, from
+% the top to the bottom of the model. In the second one, use the 'scaley'-option so that 
+% the model "height" is the length along the midline of the model. For both models, use a 
+% smaller radius (default radius is 1).
+w1 = objMakePlain('worm','spinex',x,'radius',.5,'model_unscaled');
+w2 = objMakePlain('worm','spinex',x,'scaley',true,'radius',.5,'model_scaled');
+
+% Display the models and show the axes
+figure
+subplot(1,2,1)
+objView(w1,[],[],true)
+subplot(1,2,2)
+objView(w2,[],[],true)
+```
 
 For now, that's it. For further guidance, see `help objMakePlain`, and there the sections for `RCURVE, ECURVE` and `SPINEX, SPINEZ, SPINEY`. Also, you might want to play with `objDesigner`, which is a graphical tool for designing shapes, and let's you see the effects of various parameters immediately.
 
@@ -384,7 +403,7 @@ You can also use the graphical tool `objBlendGui` to test the effect of blending
 
 ### Graphical user interface tools
 
-There are two graphical interfaces, `objDesigner` and `objBlendGui`. These are not covered here in more detail yet. Just try them out and, well, good luck. If nothing happens in `objDesigner` when you change things, try hitting the `Update` button. If things crash, don't be surprised.
+There are two graphical interfaces, `objDesigner` and `objBlendGui`. These are not covered here in more detail yet. Just try them out and, well, good luck. If nothing happens in `objDesigner` when you change things, try hitting the `Update` button. These tools (at least `objDesigner`) only work properly on Matlab at the moment. If things crash, don't be surprised.
 
 Good luck.
 
@@ -410,9 +429,11 @@ objView(m);
 
 NOTE: These functions are really meant to be the last thing you do to a model (in ShapeToolbox) before you print it or import it to some other software to fix/inspect/modify and then print. Prepare your model using the `objMake*`-functions, `objSet`, and whatever else you might need. Then do whatever prepping is needed using these functions. After that, you can use `objSet` to change the filename, for example, but don't try to do anything too fancy. As a general rule, make the model first, then modify for printing, then keep modifications (using ShapeToolbox) at a minimum.
 
+NOTE: The models will probably have some defects that need to be repaired before they can be printed (some models might not be properly closed, there might be zero-area faces etc.). A 3D printing software that comes with a printer will probably be able to repair these automatically. Otherwise, you might need to use a separate program to repair the models.
+
 ### Materials, vertex groups, texture mapping
 
-TODO.
+TODO. For now, see `help objMakePlain` and there the sections for `mtl` and `mtlfile`, as well as `uvcoords`. Also see `help objGroup`.
 
 ### Other options and considerations
 
