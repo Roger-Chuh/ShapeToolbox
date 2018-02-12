@@ -21,7 +21,8 @@ function model = objSetCoords(model)
 %                    just add the perturbations to it; allows
 %                    "recovering" the original; see also objAddPerturbation
 % 2017-06-22 - ts - disk is in the same plane as, well, the plane
-%                    (xy plane, perturbation along z; instead of xz, y)
+%                     (xy plane, perturbation along z; instead of xz, y)
+% 2018-02-03 - ts - compute spines here
 % 2018-02-09 - ts - added support for ellipsoid, superellipsoid, supertoroid
 
   switch model.shape
@@ -76,6 +77,17 @@ function model = objSetCoords(model)
           end
           model.Rbase = R(:);
       end
+      
+      if ~model.flags.custom_spine(1)
+        model.spine.x = zeros(1,model.m);
+      end
+      if ~model.flags.custom_spine(2)
+        model.spine.y = linspace(-model.height/2,model.height/2,model.m);
+      end
+      if ~model.flags.custom_spine(3)
+        model.spine.z = zeros(1,model.m);
+      end    
+      
       model.spine.X = ones(model.n,1) * model.spine.x;
       model.spine.X = model.spine.X(:);
       model.spine.Y = ones(model.n,1) * model.spine.y;
@@ -102,10 +114,24 @@ function model = objSetCoords(model)
       else
         model.Rbase = model.radius * ones(model.m*model.n,1);
       end
+      
+      if ~model.flags.custom_spine(1)
+        model.spine.x = zeros(1,model.m);
+      end
+      if ~model.flags.custom_spine(2)
+        model.spine.y = linspace(-model.height/2,model.height/2,model.m);
+      end
+      if ~model.flags.custom_spine(3)
+        model.spine.z = zeros(1,model.m);
+      end    
 
       if model.flags.scaley
         model.spine.y_orig = model.spine.y;
         model.spine.y = arcscale(model.spine.y',model.spine.x',model.spine.z',model.height)';
+        % model.spine.y = model.spine.y - mean(model.spine.y);
+        if any(~isreal(model.spine.y))
+          error('Scaling failed. ');
+        end
       end
 
       % Direction/"derivative" of the spine in the case of "worm"
@@ -178,7 +204,8 @@ function x = arcscale(x,y,z,l)
   end
 
   % Desired size of each segment:
-  dl = l/(length(x)-1);
+  %dl = l/(length(x)-1);
+  dl = l/(size(x,1)-1);
 
   % Differences between consecutive coordinates
   d = diff(x,[],1);

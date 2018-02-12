@@ -30,6 +30,7 @@ function model = objDefaultStruct(shape)
 % 2018-01-23 - ts - renamed fields for material and file
 %                   moved material and normals fields so that they
 %                   are set to empty only for a new model
+% 2018-02-03 - ts - flags for custom spine
 % 2018-02-09 - ts - added support for ellipsoid
 
 % if nargin<2 || isempty(reset)
@@ -64,10 +65,7 @@ function model = objDefaultStruct(shape)
         model.n = 128;
         model.radius = 1;
         model.height = 2*pi*model.radius;
-        model.spine.x = zeros(1,model.m);
-        model.spine.y = linspace(-model.height/2,model.height/2,model.m);
-        model.spine.z = zeros(1,model.m);
-        model.opts.coords = 'cylindrical';
+        model.opts.coords = 'cylindrical';        
       case 'torus'
         model.m = 128;
         model.n = 128;
@@ -117,6 +115,7 @@ function model = objDefaultStruct(shape)
   model.flags.use_rms = false;
   model.flags.use_map = false;
   model.flags.custom_locations = false;
+  model.flags.custom_spine = [false false false];
   model.flags.scaley = false;
   model.flags.max = false;
   

@@ -32,6 +32,7 @@ function model = objParseArgs(model,par)
 % 2016-04-12 - ts - minor fixes
 % 2017-06-22 - ts - allow only changing the coord system of disk
 % 2018-01-19 - ts - added option to set filename using name-value syntax
+% 2018-02-03 - ts - flags for spine
 % 2018-02-09 - ts - added support for parameters for
 %                    superellipsoid, supertoroid
 % 2018-02-10 - ts - changed some error messages
@@ -268,6 +269,7 @@ function model = objParseArgs(model,par)
               ii = ii+1;
               model.spine.x = par{ii};
               model.spine.x = model.spine.x(:)';
+              model.flags.custom_spine(1) = true;
             else
               error('No value or a bad value given for option ''spinex''.');
             end
@@ -276,6 +278,7 @@ function model = objParseArgs(model,par)
               ii = ii+1;
               model.spine.z = par{ii};
               model.spine.z = model.spine.z(:)';
+              model.flags.custom_spine(3) = true;
             else
               error('No value or a bad value given for option ''spinez''.');
             end
@@ -284,6 +287,7 @@ function model = objParseArgs(model,par)
               ii = ii+1;
               model.spine.y = par{ii};
               model.spine.y = model.spine.y(:)';
+              model.flags.custom_spine(2) = true;
               model.flags.scaley = false;
             else
               error('No value or a bad value given for option ''spiney''.');
