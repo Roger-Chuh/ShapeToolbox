@@ -91,7 +91,7 @@ function model = objMakeBump(shape,prm,varargin)
 % =========
 % TODO
 
-% Copyright (C) 2015, 2016, 2017 Toni Saarela
+% Copyright (C) 2015,2016,2017,2018 Toni Saarela
 % 2015-05-31 - ts - first version, based on objMakeSphereBumpy and
 %                    others
 % 2015-06-01 - ts - does planes, cylinders, and other shapes
@@ -117,6 +117,7 @@ function model = objMakeBump(shape,prm,varargin)
 % 2016-04-08 - ts - re-enabled batch mode
 % 2017-05-26 - ts - help
 % 2017-12-05 - ts - fix to help
+% 2018-02-09 - ts - fixed a bug in cell function call (use handle)
 
 % TODO
 % - option to add noise to bump amplitudes/sigmas
@@ -130,7 +131,7 @@ narg = nargin;
 if iscell(shape) && narg==1
   % If the only input argument is a cell array of cell arrays, recurse
   % through the cells. Each cell holds parameters for one shape.
-  if all(cellfun('iscell',shape))
+  if all(cellfun(@iscell,shape))
     if length(shape)>1
       objMakeBump(shape(1:end-1));
     end

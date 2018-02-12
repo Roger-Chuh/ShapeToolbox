@@ -13,7 +13,7 @@ function model = objMake(shape,perturbation,varargin)
 % Normally you would not call this function directly but would use one
 % of the objMake* wrappers, such as objMakePlain, objMakeSine, etc.
 
-% Copyright (C) 2016, 2017 Toni Saarela
+% Copyright (C) 2016,2017,2018 Toni Saarela
 % 2016-01-22 - ts - first version, based on objMake*-functions
 % 2016-01-28 - ts - minor changes
 % 2016-02-19 - ts - handles custom perturbations
@@ -26,6 +26,7 @@ function model = objMake(shape,perturbation,varargin)
 %                    dbstack
 % 2017-05-26 - ts - minor change to help. or well, "help"
 % 2018-01-15 - ts - save tilt axis and angle for sphere in prm
+% 2018-02-09 - ts - added support for ellipsoid
   
 %------------------------------------------------------------
 
@@ -45,9 +46,26 @@ model = objParseArgs(model,par);
 
 % Do shape-dependent things if needed
 switch model.shape
-  case {'sphere','plane','torus','disk'}
+  case 'sphere'
+    if length(model.radius)~=1
+      error('Sphere radius must be a scalar.');
+    end
+  case 'torus'
+    if isscalar(model.radius)
+      model.radius = model.radius * [1 1];
+    elseif length(model.radius)~=2
+      error('Torus radius must be a scalar or a vector of length 2.');
+    end
+  case {'plane','disk'}
+    ;
   case {'cylinder','revolution','extrusion','worm'}
     model = objInterpCurves(model);
+  case 'ellipsoid'
+    if isscalar(model.radius)
+      model.radius = model.radius * [1 1 1];
+    elseif length(model.radius)~=3
+      error('Ellipsoid radius must be a scalar or a vector of length 3.');
+    end
   otherwise
     error('Unknown shape'); % not needed, already checked by objDefaultStruct
 end

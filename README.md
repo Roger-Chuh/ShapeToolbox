@@ -46,7 +46,7 @@ on Windozy ones.
 
 ## Base shapes
 
-The base shapes are sphere, plane, disk, torus, and cylinder. In addition, you can create a surface of revolution, and extrusion, and a wiggly "worm" shape. That's it, no more complex shapes.
+The base shapes are sphere, ellipsoid, plane, disk, torus, and cylinder. In addition, you can create a surface of revolution, and extrusion, and a wiggly "worm" shape. That's it, no more complex shapes. (But you can add some complexity with a "superellipsoid" and "supertorus"/"supertoroid"; see further below.)
 
 ## Perturbations
 
@@ -109,7 +109,7 @@ objBlendGui
 
 ### Basic usage
 
-To make a shape, choose the `objMake*`-function based on the type of surface perturbation you want (sine, noise, bump, custom), and give the base shape name as input ('sphere', 'plane', 'disk', 'cylinder' for now, 'revolution', 'extrusion', and 'worm' a little later). To make a sphere with the default sinusoidal radial modulation, use:
+To make a shape, choose the `objMake*`-function based on the type of surface perturbation you want (sine, noise, bump, custom), and give the base shape name as input (`'sphere'`, `'plane'`, `'disk'`, `'cylinder'` for now, `'ellipsoid'`, `'revolution'`, `'extrusion'`, and `'worm'` a little later). To make a sphere with the default sinusoidal radial modulation, use:
 
 ```matlab
 % Make a shape:
@@ -126,6 +126,19 @@ m2 = objMakeSine('sphere',[8 60 0 .05])
 figure
 subplot(1,2,1); objView(m1)
 subplot(1,2,2); objView(m2)
+```
+
+There are a bunch of options you can set for a model, see full list in the help strings in the `objMake*`-functions. Most of these are given as name-value pairs (with the exception of a file name, which can be given just as a single string, see below). With `objMakePlain`, just list the options after the first argument that gives the shape:
+
+```matlab
+model = objMakePlain('plane','option_name_1',option_value_1,...)
+```
+
+With the other `objMake*`-functions, the perturbation parameters come right after the shape, and other options after them. For default parameters, pass and empty parameter vector.
+
+```matlab
+model = objMakeSine('plane',[8 90 90 .1],'option_name_1',option_value_1,...)
+model = objMakeSine('plane',[],'option_name_1',option_value_1,...)
 ```
 
 To save a model to a file (Wavefront obj format), you have a few options. First, set the option `save` to `true` and the model will be save with the default file name (`'sphere.obj'`, `'plane.obj'`, `'cylinder.obj'` etc.). Second, simply give a file name as a string when calling an `objMake*`-function:
@@ -147,16 +160,17 @@ In most of the examples below, the save option is not used.
 
 ### Shapes and perturbations
 
-The possible shapes are: `sphere`, `plane`, `torus`, `disk`, `cylinder`, `revolution`, `extrusion`, `worm`.
+The possible shapes are: `sphere`, `ellipsoid`, `plane`, `torus`, `disk`, `cylinder`, `revolution`, `extrusion`, `worm`.
 
 Perturbations are defined in different coordinate systems depending on the shape. Here's a list, but there shouldn't be anything surprising there:
 
 | Shape          | Coordinate system  |
 |----------------|--------------------|
 | sphere         | spherical          |
+| ellipsoid      | spherical          | 
 | plane          | cartesian          |
 | torus          | toroidal           |
-| disk           | cartesian, polar(?)|
+| disk           | cartesian/polar(?) |
 | cylinder-like* | cylindrical        |
 
 \* cylinders, revolutions, extrusions, worms.
@@ -326,6 +340,82 @@ m = objSet(m,'use_perturbation',[1 1 1]); % all on again
 subplot(1,3,3); objView(m)
 ```
 
+### Tilt
+
+When adding a perturbation to a sphere or an ellipsoid, it's possible to tilt the axes and thus the orientation of the perturbation. Just define the axis around which to tilt and the tilt magnitude:
+
+```matlab
+m = objMakeSine('sphere',[8 90 90 .1],'axis',[0 0 1],'angle',20)
+objView(m,[],[],1)
+```
+
+This enables to add, for example, identical perturbation patterns at different orientations to the same model. Continuing the example above:
+
+```matlab
+m = objMakeSine(m,[8 90 90 .1],'axis',[0 1 1],'angle',-20)
+objView(m,[],[],1)
+```
+
+### Change the size/shape of a model
+
+To change the size, you can set the option `'radius'`, `'height'`, `'width'`, or `'minor_radius'` as appropriate. To change the radius of a sphere or a cylinder, do:
+
+```matlab
+sphere = objMakeSine('sphere',[8 90 90 .1],'radius',2);
+cyl = objMakeBump(cylinder',[],'radius',2);
+```
+
+The option `'height'` is for planes and cylinders, the option `'width'` for planes. For tori, you can set both the majos and minor radius (minor radius is the 'tube' radius):
+
+```matlab
+m = objMakePlain('torus','radius',.5,'minor_radius',.5)
+```
+
+To create an elliptical torus, give two radius values (the two semi-axes):
+
+```matlab
+m = objMakePlain('torus','radius',[2 1])
+```
+
+For an ellipsoid, give three radius values (x-, y-, and z-directions). The default values for the radii are `[1 1 1]`, that is, by default the ellipsoid is a sphere.
+
+```matlab
+m = objMakeNoise('ellipsoid',[8 1 60 30 .1],'radius',[1 1.5 2])
+```
+
+
+TODO: Setting radii for torus, ellipsoid.
+
+### Super-ellipsoid and super-torus
+
+The super-ellipsoid and tuper-toroid are generalizations of the ellipse and torus. There are two extra parameters needed for these (mathematically, exponents for sines and cosines in their parametric representations). Use the option `'super'` to define these. The best way to get an idea of their effect is through examples:
+
+```matlab
+% Exponent values
+s = 0:.5:2.5;
+n = length(s);
+
+% Make a grid of super-tori:
+figure
+for ii = 1:n
+  for jj = 1:n
+    m = objMakePlain('torus','super',[s(ii) s(jj)]);
+    subplot(n,n,(ii-1)*n+jj);
+    objView(m)
+  end
+end
+
+% A grid of super-ellipsoids:
+figure
+for ii = 1:n
+  for jj = 1:n
+    m = objMakePlain('ellipsoid','super',[s(ii) s(jj)]);
+    subplot(n,n,(ii-1)*n+jj);
+    objView(m)
+  end
+end
+```
+
 ### Revolutions, extrusions, worms
 
 In addition to the base shapes seen above, you can use surfaces-of-revolution, extrusions, and "worms". These are all "cylinder-like", or tube-like things, just more wiggly. These shapes can then be perturbed in the same way as the others, by adding sinusoids, noise, bumps, and so forth.
@@ -384,13 +474,13 @@ You can also use the graphical tool `objBlendGui` to test the effect of blending
 
 ### Graphical user interface tools
 
-There are two graphical interfaces, `objDesigner` and `objBlendGui`. These are not covered here in more detail yet. Just try them out and, well, good luck. If nothing happens in `objDesigner` when you change things, try hitting the `Update` button. If things crash, don't be surprised.
+There are two graphical interfaces, `objDesigner` and `objBlendGui`. These are not covered here in more detail yet. Just try them out and, well, good luck. If nothing happens in `objDesigner` when you change things, try hitting the `Update` button. If things crash, don't be surprised. Not all options are available through this interface. At the moment, ellipsoid and the "superparameters" are also not available. Hope to change this soon.
 
 Good luck.
 
 ### Prepare models for 3D printing
 
-There are a few functions that might be useful when prepping models for printing on a 3D printer. The models as they are spat out by the `objMake*`-functions are just "shells", that is, define only the outer boundary of the model shape. For 3D printing, the model walls need to have a thickness (of course you could print a solid sphere, as well as some other shapes, but that would be wasteful, and to a plane you would need to add some thickness to print anyway). For this, use `objAddThickness`. Also, you might want to scale the model. The models have default sizes that are (close to) unity in arbitrary units. For example, the default sphere and cylinder base radius is one, and default plane width is one. A 3D printing software might interpret this as one inch or one millimeter, but in any case, it is unlikely to be what you want. Use `objScale` to scale it. Finally, with some printing techniques (SLA at least) it might not be a good idea to try to print a hollow sphere because of a possible "suction effect" between the model and the bottom of the resin tank. You can use `objCutSphere` to cut out a piece of a sphere to make it more printable in this case.
+There are a few functions that might be useful when prepping models for printing on a 3D printer. The models as they are spat out by the `objMake*`-functions are just "shells", that is, define only the outer boundary of the model shape. For 3D printing, the model walls need to have a thickness (of course you could print a solid sphere, as well as some other shapes, but that would be wasteful, and to a plane you would need to add some thickness to print anyway). For this, use `objAddThickness`. Also, you might want to scale the model. The models have default sizes that are (close to) unity in arbitrary units. For example, the default sphere and cylinder base radius is one, and default plane width is one. A 3D printing software might interpret this as one inch or one millimeter, but in any case, it is unlikely to be what you want. Use `objScale` to scale it. Finally, with some printing techniques (SLA at least) it might not be a good idea to try to print a hollow sphere because of a possible "suction effect" between the model and the bottom of the resin tank. You can use `objCutSphere` to cut out a piece of a sphere (or an ellipsoid) to make it more printable in this case.
 
 ```matlab
 % Make a sphere with bumps and dents

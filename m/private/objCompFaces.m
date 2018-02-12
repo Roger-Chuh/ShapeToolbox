@@ -10,6 +10,7 @@ function s = objCompFaces(s)
 % 2016-05-28 - ts - groups ok for all shapes
 % 2017-11-22 - ts - experimental support for boxifying a plane
 %                   correction to help
+% 2018-02-09 - ts - added support for ellipsoid
 
 %------------------------------------------------------------
   
@@ -18,7 +19,7 @@ n = s.n;
 
 
 switch s.shape
-  case 'sphere'
+  case {'sphere'}
     s.faces = zeros((m-1)*n*2,3);
     F = ([1 1]'*[1:n]);
     F = F(:) * [1 1 1];
@@ -27,7 +28,7 @@ switch s.shape
     for ii = 1:m-1
       s.faces((ii-1)*n*2+1:ii*n*2,:) = (ii-1)*n + F;
     end
-  case {'cylinder','revolution','extrusion','worm'}
+  case {'cylinder','revolution','extrusion','worm','ellipsoid'}
     if ~s.flags.thickwalls
       s.faces = zeros((m-1)*n*2,3);
     else

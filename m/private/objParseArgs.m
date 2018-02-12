@@ -32,6 +32,9 @@ function model = objParseArgs(model,par)
 % 2016-04-12 - ts - minor fixes
 % 2017-06-22 - ts - allow only changing the coord system of disk
 % 2018-01-19 - ts - added option to set filename using name-value syntax
+% 2018-02-09 - ts - added support for parameters for
+%                    superellipsoid, supertoroid
+% 2018-02-10 - ts - changed some error messages
   
 % Flag to indicate whether uv-coordinate computation was set to false
 % explicitly.  This is used so that the option 'uvcoords' can be used
@@ -138,7 +141,14 @@ function model = objParseArgs(model,par)
               model.radius = par{ii};
             else
               error('No value or a bad value given for option ''radius''.');
-            end              
+            end
+          case 'super'
+            if ii<length(par) && isnumeric(par{ii+1})
+              ii = ii + 1;
+              model.super = par{ii};
+            else
+              error('No value or a bad value given for option ''super''.');
+            end                        
           case 'rpar'
             if ii<length(par) && isnumeric(par{ii+1})
               ii = ii + 1;
@@ -151,42 +161,42 @@ function model = objParseArgs(model,par)
               ii = ii + 1;
               model.prm(model.idx).cprm = par{ii};
             else
-              error('No value or a bad value given for option ''cpar''.');
+              error('No value or a bad value given for perturbation parameters.');
             end
           case 'mpar'
             if ii<length(par) && isnumeric(par{ii+1})
               ii = ii + 1;
               model.prm(model.idx).mprm = par{ii};
             else
-              error('No value or a bad value given for option ''mpar''.');
+              error('No value or a bad value given for envelope parameters.');
             end
           case 'npar'
             if ii<length(par) && isnumeric(par{ii+1})
               ii = ii + 1;
               model.prm(model.idx).nprm = par{ii};
             else
-              error('No value or a bad value given for option ''npar''.');
+              error('No value or a bad value given for perturbation parameters.');
             end
           case 'par'
             if ii<length(par) && isnumeric(par{ii+1})
               ii = ii + 1;
               model.prm(model.idx).prm = par{ii};
             else
-              error('No value or a bad value given for option ''par''.');
+              error('No value or a bad value given for perturbation parameters.');
             end
           case 'custompar'
             if ii<length(par) && isnumeric(par{ii+1})
               ii = ii + 1;
               model.opts.prm = par{ii};
             else
-              error('No value or a bad value given for option ''custompar''.');
+              error('No value or a bad value given for perturbation parameters.');
             end
           case 'custom'
             if ii<length(par)
               ii = ii + 1;
               model.opts.f = par{ii};
             else
-              error('No value or a bad value given for option ''custom''.');
+              error('No value or a bad value given for custom perturbation.');
             end              
           case {'locations','loc'}
             if ii<length(par) && iscell(par{ii+1}) && length(par{ii+1})==2

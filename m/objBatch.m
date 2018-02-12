@@ -60,7 +60,7 @@ function status = objBatch(filename,ignore_errors)
 % errors occurred.  If all shapes were completed successfully,
 % STATUS is always 0.
 
-% Copyright (C) 2015,2016 Toni Saarela
+% Copyright (C) 2015,2016,2018 Toni Saarela
 % 2015-10-02 - ts - first version
 % 2015-11-09 - ts - fixed errors in help
 %                   removed input arg 'modulation', the modulation is
@@ -68,7 +68,9 @@ function status = objBatch(filename,ignore_errors)
 %                   parameter cell array and can be different for
 %                   each model
 % 2016-03-26 - ts - renamed objBatch (was objMakeBatch)
-
+% 2018-02-09 - ts - fixed a bug in when perturbation is 'none' (was calling
+%                   objMake instead of objMakePlain)
+  
 status = 0;
 
 if nargin<2 || isempty(ignore_errors)
@@ -92,7 +94,7 @@ for ii = 1:length(prm)
   try
     switch lower(prm{ii}{1})
       case 'none'
-        objMake(prm{ii}{2:end});
+        objMakePlain(prm{ii}{2:end});
       case 'sine'
         objMakeSine(prm{ii}{2:end});
       case 'noise'

@@ -12,9 +12,19 @@ function m = objScale(m,scale)
 % 2017-12-21 - ts - first version
 % 2018-01-22 - ts - works prperly with all shapes (torus has a bug)
 %                   added a sort of help
+% 2018-02-10 - ts - added support for ellipsoid
+
+  if ~isscalar(scale)
+    error('Scaling factor must be scalar.');
+  end
   
   switch m.shape
     case 'sphere'
+      m.R = scale * m.R;
+      m.Rbase = scale * m.Rbase;
+      m.P = scale * m.P;
+      m = objMakeVertices(m);
+    case 'ellipsoid'
       m.R = scale * m.R;
       m.Rbase = scale * m.Rbase;
       m.P = scale * m.P;
@@ -42,5 +52,7 @@ function m = objScale(m,scale)
       m.rbase = scale * m.rbase;
       m = objMakeVertices(m);
   end
+  
+  m.scale = scale;
   
 end

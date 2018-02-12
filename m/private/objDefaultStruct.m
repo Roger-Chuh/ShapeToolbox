@@ -30,7 +30,8 @@ function model = objDefaultStruct(shape)
 % 2018-01-23 - ts - renamed fields for material and file
 %                   moved material and normals fields so that they
 %                   are set to empty only for a new model
-  
+% 2018-02-09 - ts - added support for ellipsoid
+
 % if nargin<2 || isempty(reset)
 %   reset = false;
 % end
@@ -41,6 +42,12 @@ function model = objDefaultStruct(shape)
     % Create a new model
     shape = lower(shape);
     switch shape
+      case 'ellipsoid'
+        model.m = 64;
+        model.n = 128;
+        model.radius = [1 1 1];
+        model.super = [1 1];
+        model.opts.coords = 'spherical';
       case 'sphere'
         model.m = 64;
         model.n = 128;
@@ -60,12 +67,13 @@ function model = objDefaultStruct(shape)
         model.spine.x = zeros(1,model.m);
         model.spine.y = linspace(-model.height/2,model.height/2,model.m);
         model.spine.z = zeros(1,model.m);
-        model.opts.coords = 'cylindrical';        
+        model.opts.coords = 'cylindrical';
       case 'torus'
         model.m = 128;
         model.n = 128;
         model.tube_radius = 0.4;
-        model.radius = 1;
+        model.radius = [1 1];
+        model.super = [1 1];
         model.opts.rprm = [];
         model.opts.coords = 'torus';
       case {'disk','disc'}

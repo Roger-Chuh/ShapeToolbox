@@ -19,6 +19,7 @@ function objBlendGui(m1,m2)
 % 2017-11-17 - ts - fixes in passing axes handles---no idea how it
 %                    actually worked in matlab with those bugs
 % 2018-01-23 - ts - use objview instead of objshow
+% 2018-02-12 - ts - better handling of incompatible shapes
   
 % TODO:
 
@@ -152,16 +153,17 @@ function updateBlend(src,event,fh,th,ah)
   m2 = getappdata(fh,'m2');
   % mblend = getappdata(fh,'mblend');
   w = getappdata(fh,'weight');
+  mblend = [];
+  setappdata(fh,'mblend',mblend);
   if ~isempty(m1) && ~isempty(m2)
-    mblend = objBlend(m1,m2,1-w);
     axes(ah(2));
+    cla(ah(2));
+    mblend = objBlend(m1,m2,1-w);
     try
       objView(mblend,[],get(ah(2),'CameraPosition'));
     catch
       objView(mblend);
     end
-  else
-    mblend = [];
   end
   set(th,'String',num2str(1-w));
   setappdata(fh,'mblend',mblend);
@@ -179,7 +181,9 @@ function resetView(src,event,fh,ah)
   if ~isempty(mblend)
     axes(ah(2));
     objView(mblend);
-  end  
+  else
+    cla(ah(2));
+  end
   if ~isempty(m2)
     axes(ah(3));
     objView(m2);
@@ -234,10 +238,10 @@ function importFromWorkSpace(src,event,th,idx,fh,thw,ah)
     set(h,'BackgroundColor',[.2 .8 .2]);
     setappdata(fh,sprintf('m%d',idx),m);
     updateBlend([],[],fh,thw,ah);
-    resetView([],[],fh,ah);
   catch
     set(h,'BackgroundColor',[1 .2 .2]);
   end
+  resetView([],[],fh,ah);
   pause(.2);
   set(h,'BackgroundColor',bgcol);  
 end

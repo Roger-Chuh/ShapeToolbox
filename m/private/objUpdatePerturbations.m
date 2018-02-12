@@ -9,6 +9,7 @@ function model = objUpdatePerturbations(model)
 % Copyright (C) 2017 Toni Saarela
 % 2017-06-08 - ts - first version
 % 2017-06-22 - ts - disk modulation in z-dir
+% 2018-02-09 - ts - added support for ellipsoid
   
   if model.flags.normal_dir(model.idx)
     switch model.shape
@@ -22,6 +23,8 @@ function model = objUpdatePerturbations(model)
     end
   else
     switch model.shape
+      case 'ellipsoid'
+        model.R = model.Rbase + sum(model.P(:,model.flags.use_perturbation),2)*[1 1 1];
       case 'sphere'
         model.R = model.Rbase + sum(model.P(:,model.flags.use_perturbation),2);
       case 'plane'

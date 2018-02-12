@@ -30,6 +30,7 @@ function model = objPlaceBumps(model)
 %                    if this is the first perturbation added)
 % 2017-11-17 - ts - similar bug fix as above for torus (rbase
 %                    instead of r), plane, disk
+% 2018-02-09 - ts - added support for ellipsoid
   
 ii = length(model.prm);
 prm = model.prm(ii).prm;
@@ -43,9 +44,10 @@ elseif length(model.opts.mindist)~=nbumptypes
 end
 
 switch model.shape
-  case 'sphere'
+  case {'sphere','ellipsoid'}
     % Rtmp = zeros(size(model.R));
-    Rtmp = zeros(size(model.Rbase));
+    % Rtmp = zeros(size(model.Rbase));
+    Rtmp = zeros([model.m*model.n 1]);
     for jj = 1:nbumptypes
 
       if model.flags.custom_locations && ~isempty(model.opts.locations{1}{jj})

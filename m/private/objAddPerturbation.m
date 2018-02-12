@@ -23,7 +23,8 @@ function model = objAddPerturbation(model)
 % 2018-01-15 - ts - added option to rotate coords before adding
 %                    sine perturbation to a sphere
 % 2018-01-21 - ts - included objRotMat in this file
-  
+% 2018-02-09 - ts - added support for ellipsoid
+
 % TODO: 
 % - objRemCaps for worm
 % - perturbation normal to the surface
@@ -89,6 +90,9 @@ function model = objAddPerturbation(model)
             X = model.Theta;
             Y = model.Phi;
           end
+        case 'ellipsoid'
+          X = model.Theta;
+          Y = model.Phi;
         case {'torus','toroidal'}
           X = model.Theta;
           Y = model.Phi;
@@ -129,7 +133,7 @@ function model = objAddPerturbation(model)
       mprm = model.prm(model.idx).mprm;
       
       switch model.opts.coords
-        case {'spherical','torus','toroidal'}
+        case {'spherical','torus','toroidal','ellipsoid'}
           X = reshape(model.Theta,[model.n model.m])';
           Y = reshape(model.Phi,[model.n model.m])';
           w = 1;
@@ -209,29 +213,29 @@ function M = objRotMat(v,alpha)
 % Return a 3D rotation matrix to rotate a given vector
 % about vector v by angle alpha.
 
-theta = atan2(v(1),v(3));
-phi = atan2(v(2),sqrt(v(1)^2+v(3)^2));
+  theta = atan2(v(1),v(3));
+  phi = atan2(v(2),sqrt(v(1)^2+v(3)^2));
 
-Ry1 = [ cos(-theta) 0 -sin(-theta)
-       0          1 0
-      sin(-theta) 0 cos(-theta)];
+  Ry1 = [ cos(-theta) 0 -sin(-theta)
+          0          1 0
+          sin(-theta) 0 cos(-theta)];
 
-Rx1 = [1 0         0
-      0 cos(phi) sin(phi)
-      0 -sin(phi)  cos(phi)];
+  Rx1 = [1 0         0
+         0 cos(phi) sin(phi)
+         0 -sin(phi)  cos(phi)];
 
-Rz = [cos(alpha) sin(alpha) 0
-      -sin(alpha)  cos(alpha) 0
-      0           0          1];
+  Rz = [cos(alpha) sin(alpha) 0
+        -sin(alpha)  cos(alpha) 0
+        0           0          1];
 
-Rx2 = [1 0         0
-      0 cos(-phi) sin(-phi)
-      0 -sin(-phi)  cos(-phi)];
+  Rx2 = [1 0         0
+         0 cos(-phi) sin(-phi)
+         0 -sin(-phi)  cos(-phi)];
 
-Ry2 = [ cos(theta) 0 -sin(theta)
-       0          1 0
-      sin(theta) 0 cos(theta)];
+  Ry2 = [ cos(theta) 0 -sin(theta)
+          0          1 0
+          sin(theta) 0 cos(theta)];
 
-M = Ry1 * Rx1 * Rz * Rx2 * Ry2;
+  M = Ry1 * Rx1 * Rz * Rx2 * Ry2;
 
 end

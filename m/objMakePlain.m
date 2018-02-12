@@ -14,8 +14,8 @@ function model = objMakePlain(shape,varargin)
 % SHAPE:
 % ======
 %
-% One of 'sphere', 'plane', 'disk', 'cylinder', 'torus', 'revolution', 
-% 'extrusion', and 'worm'.  Example: 
+% One of 'sphere', 'eelipsoid', 'plane', 'disk', 'cylinder',
+% 'torus', 'revolution', 'extrusion', and 'worm'.  Example: 
 %   m = objMakePlain('sphere')
 %
 % The shapes use a coordinate system where the y-direction is "up" and
@@ -24,7 +24,14 @@ function model = objMakePlain(shape,varargin)
 % Some notes and default values for the shapes (some can be changed
 % with the optional input arguments, see further below):
 %
-% SPHERE: A unit sphere (radius 1), default mesh size 64x128.
+% SPHERE: A unit sphere (radius 1), default mesh size
+% 64x128. Sphere is a special case of ellipsoid (below).
+% 
+% ELLIPSOID: By default the ellipsoid has the shape of a sphere (radii
+% in x, y, z directions are all 1), but you can change the shape by
+% setting the option 'radius' (see further below). Default mesh size
+% 64x128. (A "super-ellipsoid" is also possible, see further below for
+% option 'super'.)
 %
 % PLANE: A plane with a width and height of 1, lying on the x-y plane,
 % centered on the origin.  Default mesh size 128x128.
@@ -36,7 +43,10 @@ function model = objMakePlain(shape,varargin)
 % size 128x128.
 %
 % TORUS: A torus with ring radius of 1 and tube radius of 0.4.
-% Default mesh size 128x128.
+% Default mesh size 128x128. An elliptic torus is possible by setting
+% the option 'radius' and giving different radii for x and z
+% directions; see below. (A "super-toroid" is also possible, see
+% further below for option 'super'.)
 %
 % REVOLUTION: A surface of revolution based on a user-defined profile,
 % height 2*pi.  See the option 'rcurve' below on how to define the
@@ -191,10 +201,27 @@ function model = objMakePlain(shape,varargin)
 %  objMakePlain('cylinder','height',1.35);
 %
 % RADIUS, MAJOR_RADIUS
-% Scalar.  Change the radius of a sphere or a cylinder, or the major
-% radius of a torus.  Default is 1.  Example:
+% Scalar.  Change the radius of a sphere, ellipsoid, or a cylinder;
+% or the major radius of a torus.  Default is 1.  Example:
 %  objMakePlain('sphere','radius',1.5);
 %
+% For an ellipsoid, give three values; the radii in the x-, y-, and
+% z-directions:
+%  objMakePlain('ellipsoid','radius',[1 1.5 2]);
+%
+% For an elliptic torus, give different radii in the x- and
+% z-directions (the two semi-axes):objMakePlain('sphere','radius',1.5);
+%  objMakePlain('torus','radius',[1.5 1]);
+%
+% SUPER:
+% The exponents to make a 'super-ellipse' or a 'super-torus'
+% (generalizations of an ellipsoid and a torus). You can look up
+% what that means or just try them out:
+%  m = objMakePlain('ellipsoid','super',[.5 1])
+%  m = objMakePlain('ellipsoid','super',[3 3])
+%  m = objMakePlain('torus','super',[.5 .5])
+%  m = objMakePlain('torus','super',[2 2])
+% 
 % COORDS:
 % Can be used with the 'disk' shape to select the coordinate system in
 % which the perturbations are added.  Either 'polar' (default) or
@@ -237,7 +264,7 @@ function model = objMakePlain(shape,varargin)
 % basic shapes (sphere, cylinder...) can be usually produced with a
 % single command in a graphics/rendering program.
 
-% Copyright (C) 2015, 2016, 2017 Toni Saarela
+% Copyright (C) 2015,2016,2017,2018 Toni Saarela
 % 2015-06-01 - ts - first version, based on objMakeSine
 % 2015-06-02 - ts - wrote help
 % 2015-06-05 - ts - added option for "caps" for cylinder-type shapes
@@ -260,6 +287,10 @@ function model = objMakePlain(shape,varargin)
 % 2016-04-14 - ts - help
 % 2017-05-26 - ts - help
 % 2018-01-23 - ts - updated material definitions in help
+% 2018-02-09 - ts - fixed a bug in batch option (was calling
+%                     objMake instead of recursively calling self)
+%                   fixed a bug in cell function call (use handle)
+% 2018-02-10 - ts - help updated for ellipsoid, (super-)torus
   
 %------------------------------------------------------------
 
@@ -270,11 +301,11 @@ narg = nargin;
 if iscell(shape) && narg==1
   % If the only input argument is a cell array of cell arrays, recurse
   % through the cells. Each cell holds parameters for one shape.
-  if all(cellfun('iscell',shape))
+  if all(cellfun(@iscell,shape))
     if length(shape)>1
-      objMake(shape(1:end-1));
+      objMakePlain(shape(1:end-1));
     end
-    objMake(shape{end});
+    objMakePlain(shape{end});
     return
   end
   % Otherwise, unpack the mandatory input arguments from the beginning

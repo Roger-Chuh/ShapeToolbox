@@ -33,9 +33,10 @@ function model = objCutSphere(model,n)
 % 2018-01-22 - ts - properly modify all relevant matrices
 %                    (including Rbase, P)
 %                   added help
-  
-  if ~strcmp(model.shape,'sphere')
-    error('Only works with sphere.');
+% 2018-02-10 - ts - added support for ellipsoid
+
+  if ~any(strcmp(model.shape,{'sphere','ellipsoid'}))
+    error('Only works with sphere and ellipsoid.');
   end
   
   x = 1:model.n;
@@ -49,8 +50,8 @@ function model = objCutSphere(model,n)
 
   model.Theta = model.Theta(idx);
   model.Phi = model.Phi(idx);
-  model.R = model.R(idx);
-  model.Rbase = model.Rbase(idx);
+  model.R = model.R(idx,:);
+  model.Rbase = model.Rbase(idx,:);
   model.P = model.P(idx,:);
   
   model.m = model.m - n;

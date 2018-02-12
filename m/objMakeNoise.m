@@ -111,7 +111,7 @@ function model = objMakeNoise(shape,nprm,varargin)
 % TODO
 
 
-% Copyright (C) 2015, 2016, 2017 Toni Saarela
+% Copyright (C) 2015,2016,2017,2018 Toni Saarela
 % 2015-05-31 - ts - first version, based on objMakeSphereNoisy and
 %                    others
 % 2015-06-03 - ts - envelope parameter scaling for planes
@@ -141,7 +141,8 @@ function model = objMakeNoise(shape,nprm,varargin)
 % 2016-03-25 - ts - is now a wrapper for the new objMake
 % 2016-04-08 - ts - re-enabled batch mode
 % 2017-05-26 - ts - help
-  
+% 2018-02-09 - ts - fixed a bug in cell function call (use handle)
+
 %------------------------------------------------------------
 
 narg = nargin;
@@ -151,7 +152,7 @@ narg = nargin;
 if iscell(shape) && narg==1
   % If the only input argument is a cell array of cell arrays, recurse
   % through the cells. Each cell holds parameters for one shape.
-  if all(cellfun('iscell',shape))
+  if all(cellfun(@iscell,shape))
     if length(shape)>1
       objMakeNoise(shape(1:end-1));
     end

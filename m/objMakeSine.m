@@ -117,7 +117,7 @@ function model = objMakeSine(shape,cprm,varargin)
 % =========
 % TODO
 
-% Copyright (C) 2015, 2016, 2017 Toni Saarela
+% Copyright (C) 2015,2016,2017,2018 Toni Saarela
 % 2015-05-31 - ts - first version, based on objmakeSphere and others
 % 2015-06-03 - ts - wrote help
 % 2015-06-05 - ts - added option for "caps" for cylinder-type shapes
@@ -138,6 +138,7 @@ function model = objMakeSine(shape,cprm,varargin)
 % 2016-04-08 - ts - re-enabled batch mode
 % 2016-04-14 - ts - help
 % 2018-01-18 - ts - included axis & angle to help
+% 2018-02-09 - ts - fixed a bug in cell function call (use handle)
   
 %------------------------------------------------------------
 
@@ -148,7 +149,7 @@ narg = nargin;
 if iscell(shape) && narg==1
   % If the only input argument is a cell array of cell arrays, recurse
   % through the cells. Each cell holds parameters for one shape.
-  if all(cellfun('iscell',shape))
+  if all(cellfun(@iscell,shape))
     if length(shape)>1
       objMakeSine(shape(1:end-1));
     end

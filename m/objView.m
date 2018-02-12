@@ -61,14 +61,17 @@ function h = objView(obj,func,campos,showaxes)
 % 2018-01-20 - ts - rewrote the switching of z and y axes
 % 2018-01-21 - ts - renamed from objshow to objview
 % 2018-01-23 - ts - work-around to get correct view position in octave
+% 2018-02-09 - ts - added support for ellipsoid
+% 2018-02-11 - ts - with empty input just create the figure (mainly
+%                    for objDesigner)
   
 % TODO
 % https://se.mathworks.com/help/matlab/examples/displaying-complex-three-dimensional-objects.html
 % use patch object?
 % material: shiny etc
 % light position, ambient, specular etc
-    
-  if ischar(obj)
+  
+  if ischar(obj) && ~isempty(obj)
     obj = objRead(obj);
   end
 
@@ -86,69 +89,77 @@ function h = objView(obj,func,campos,showaxes)
   
   isoctave = exist('OCTAVE_VERSION');
   
-  X = reshape(obj.vertices(:,1),[obj.n obj.m])';
-  Y = reshape(obj.vertices(:,2),[obj.n obj.m])';
-  Z = reshape(obj.vertices(:,3),[obj.n obj.m])';
+  if ~isempty(obj)
+    
+    X = reshape(obj.vertices(:,1),[obj.n obj.m])';
+    Y = reshape(obj.vertices(:,2),[obj.n obj.m])';
+    Z = reshape(obj.vertices(:,3),[obj.n obj.m])';
 
-  if isfield(obj,'shape')
-    switch obj.shape
-      case {'sphere','cylinder','revolution','extrusion','worm'}
-        X = reshape(obj.vertices(:,1),[obj.n obj.m])';
-        Y = reshape(obj.vertices(:,2),[obj.n obj.m])';
-        Z = reshape(obj.vertices(:,3),[obj.n obj.m])';
-        X = [X X(:,1)]; 
-        Y = [Y Y(:,1)]; 
-        Z = [Z Z(:,1)]; 
-      case 'torus'
-        X = reshape(obj.vertices(:,1),[obj.n obj.m])';
-        Y = reshape(obj.vertices(:,2),[obj.n obj.m])';
-        Z = reshape(obj.vertices(:,3),[obj.n obj.m])';
-        X = [X X(:,1)]; 
-        Y = [Y Y(:,1)]; 
-        Z = [Z Z(:,1)]; 
-        X = [X; X(1,:)]; 
-        Y = [Y; Y(1,:)]; 
-        Z = [Z; Z(1,:)]; 
-    end
-  end
-
-  % Switch the y and z coordinates.  Matlab insists having z as the
-  % up-direction when 3d rotation is on, so we do this to have y
-  % up. Basically we should have Y = -Z, but it's better to switch
-  % the Z axis direction. This is done further below. Either way,
-  % we're effectively rotating the shape about the X-axis and then
-  % relabeling z and y axes (or switching their labels) to get the
-  % desired effect.
-  tmp = Y;
-  Y = Z;
-  Z = tmp;
-  
-  %figure;
-  switch lower(func)
-    case 'surfl'
-      h = surfl(X,Y,Z);%,[4 10 4]);%,'cdata');
-      try
-        hl = light(gca);
+    if isfield(obj,'shape')
+      switch obj.shape
+        case {'sphere','cylinder','revolution','extrusion','worm','ellipsoid'}
+          X = reshape(obj.vertices(:,1),[obj.n obj.m])';
+          Y = reshape(obj.vertices(:,2),[obj.n obj.m])';
+          Z = reshape(obj.vertices(:,3),[obj.n obj.m])';
+          X = [X X(:,1)]; 
+          Y = [Y Y(:,1)]; 
+          Z = [Z Z(:,1)]; 
+        case 'torus'
+          X = reshape(obj.vertices(:,1),[obj.n obj.m])';
+          Y = reshape(obj.vertices(:,2),[obj.n obj.m])';
+          Z = reshape(obj.vertices(:,3),[obj.n obj.m])';
+          X = [X X(:,1)]; 
+          Y = [Y Y(:,1)]; 
+          Z = [Z Z(:,1)]; 
+          X = [X; X(1,:)]; 
+          Y = [Y; Y(1,:)]; 
+          Z = [Z; Z(1,:)]; 
       end
-      % if ~isoctave
-      %   hl = light(gca);
-      % end
-      shading interp;
-      colormap gray;
-    case 'surf'
-      h = surf(X,Y,Z);
-      colormap gray;
-    case 'mesh'
-      h = mesh(X,Y,Z);
-      set(h,'EdgeColor',[0 0 0],'FaceColor',[1 1 1]);
-    case 'wireframe'
-      h = mesh(X,Y,Z);
-      set(h,'EdgeColor',[0 0 0],'FaceColor','none');
-    otherwise
-      error('Unknown viewing function.  Use ''surfl'', ''surf'', ''mesh'', or ''wireframe''.')
+    end
+
+    % Switch the y and z coordinates.  Matlab insists having z as the
+    % up-direction when 3d rotation is on, so we do this to have y
+    % up. Basically we should have Y = -Z, but it's better to switch
+    % the Z axis direction. This is done further below. Either way,
+    % we're effectively rotating the shape about the X-axis and then
+    % relabeling z and y axes (or switching their labels) to get the
+    % desired effect.
+    tmp = Y;
+    Y = Z;
+    Z = tmp;
+    
+    %figure;
+    switch lower(func)
+      case 'surfl'
+        h = surfl(X,Y,Z);%,[4 10 4]);%,'cdata');
+        try
+          hl = light(gca);
+        end
+        % if ~isoctave
+        %   hl = light(gca);
+        % end
+        shading interp;
+        colormap gray;
+      case 'surf'
+        h = surf(X,Y,Z);
+        colormap gray;
+      case 'mesh'
+        h = mesh(X,Y,Z);
+        set(h,'EdgeColor',[0 0 0],'FaceColor',[1 1 1]);
+      case 'wireframe'
+        h = mesh(X,Y,Z);
+        set(h,'EdgeColor',[0 0 0],'FaceColor','none');
+      otherwise
+        error('Unknown viewing function.  Use ''surfl'', ''surf'', ''mesh'', or ''wireframe''.')
+    end
+    
+  else
+    axes;
+    set(gca,'xlim',[-1 1],'ylim',[-1 1],'zlim',[-1 1]);
   end
+  
   axis equal
-  set(gca,'Visible','Off');
+  set(gca,'Visible','Off');  
 
   if isoctave
     try
@@ -181,7 +192,7 @@ function h = objView(obj,func,campos,showaxes)
     % and let the user use the buttons. But Octave does not have it
     % yet, so use rotate3d and switch the z and y axes. Sigh.
     % cameratoolbar('Show')
-  
+    
   end
 
   xlabel('x')
@@ -190,7 +201,7 @@ function h = objView(obj,func,campos,showaxes)
   % z coordinates are also switched (above) for viewing.
   ylabel('z')
   zlabel('y')
-    
+  
   if showaxes
     set(gca,'Visible','On')
   end

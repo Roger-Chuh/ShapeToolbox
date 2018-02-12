@@ -54,7 +54,8 @@ function model = objAddThickness(model,w,type)
 % 2018-01-18 - ts - help
 % 2018-01-22 - ts - works prperly with all shapes except torus
 %                   added a sort of help
-
+% 2018-02-10 - ts - added support for ellipsoid
+  
   if strcmp(model.shape,'torus')
     error('Sorry, wall thickness thing not yet implemented for tori.');
   end
@@ -113,6 +114,31 @@ function model = objAddThickness(model,w,type)
       model.Theta = Theta(:);
       model.Phi = Phi(:);
       model.r = r(:);
+      
+      model.m = 2*model.m;
+      
+    case 'ellipsoid'
+      
+      Theta = reshape(model.Theta,[model.n model.m])';
+      Phi = reshape(model.Phi,[model.n model.m])';
+      R = permute(reshape(model.R,[model.n model.m 3]),[2 1 3]);
+      
+      Theta = [flipud(Theta); Theta];
+      Phi = [flipud(Phi); Phi];
+      
+      if flat
+        Rbase = permute(reshape(model.Rbase,[model.n model.m 3]),[2 1 3]);
+        Rtmp = flipud(Rbase)-w;
+      else
+        Rtmp = flipud(R)-w;
+      end
+      
+      R = [Rtmp; R];
+      
+      Theta = Theta'; Phi = Phi'; R = permute(R,[2 1 3]);
+      model.Theta = Theta(:);
+      model.Phi = Phi(:);
+      model.R = reshape(R,[2*model.m*model.n 3]);
       
       model.m = 2*model.m;
       

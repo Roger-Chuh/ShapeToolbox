@@ -16,7 +16,8 @@ function model = objMakeHeightMap(model)
 %                    make interpolation of height map work
 % 2017-06-08 - ts - make the perturbation profiles but don't add
 %                    them to the model yet
-
+% 2018-02-11 - ts - perturbations were still added too early; fixed
+%                   added support for ellipsoid
 
 % TODO:
 % - you now use both model.idx and ii to index the current
@@ -25,9 +26,9 @@ function model = objMakeHeightMap(model)
 ii = model.idx;
 
 switch model.shape
-  case 'sphere'
+  case {'sphere','ellipsoid'}
     % R = reshape(model.R,[model.n model.m])';
-    R = reshape(model.Rbase,[model.n model.m])';
+    % R = reshape(model.Rbase,[model.n model.m])';
     if model.prm(ii).mmap~=model.m || model.prm(ii).nmap~=model.n
       Theta = model.Theta;
       Phi = model.Phi;
@@ -40,13 +41,14 @@ switch model.shape
       [Theta2,Phi2] = meshgrid(theta2,phi2);
       model.prm(ii).map = interp2(Theta2,Phi2,model.prm(ii).map,Theta,Phi);
     end
-    R = R + model.prm(ii).ampl * model.prm(ii).map;
-    R = R'; 
+    % R = R + model.prm(ii).ampl * model.prm(ii).map;
+    % R = R'; 
     % model.R = R(:);
-    model.P(:,model.idx) = R(:);
+    P = model.prm(ii).ampl * model.prm(ii).map;
+    model.P(:,model.idx) = P(:);
   case 'plane'
     % Z = reshape(model.Z,[model.n model.m])';
-    Z = reshape(model.Zbase,[model.n model.m])';
+    % Z = reshape(model.Zbase,[model.n model.m])';
     if model.prm(ii).mmap~=model.m || model.prm(ii).nmap~=model.n
       X = model.X;
       Y = model.Y;
@@ -58,13 +60,14 @@ switch model.shape
       [X2,Y2] = meshgrid(x2,y2);
       model.prm(ii).map = interp2(X2,Y2,model.prm(ii).map,X,Y);
     end
-    Z = Z + model.prm(ii).ampl * model.prm(ii).map;
-    Z = Z'; 
+    % Z = Z + model.prm(ii).ampl * model.prm(ii).map;
+    % Z = Z'; 
     % model.Z = Z(:);
-    model.P(:,model.idx) = Z(:);
+    P = model.prm(ii).ampl * model.prm(ii).map;
+    model.P(:,model.idx) = P(:);
   case {'cylinder','revolution','extrusion'}
     % R = reshape(model.R,[model.n model.m])';
-    R = reshape(model.Rbase,[model.n model.m])';
+    % R = reshape(model.Rbase,[model.n model.m])';
     if model.prm(ii).mmap~=model.m || model.prm(ii).nmap~=model.n
       Theta = model.Theta;
       Y = model.Y;
@@ -77,13 +80,14 @@ switch model.shape
       [Theta2,Y2] = meshgrid(theta2,y2);
       model.prm(ii).map = interp2(Theta2,Y2,model.prm(ii).map,Theta,Y);
     end
-    R = R + model.prm(ii).ampl * model.prm(ii).map;
-    R = R'; 
+    % R = R + model.prm(ii).ampl * model.prm(ii).map;
+    % R = R'; 
     % model.R = R(:);
-    model.P(:,model.idx) = R(:);
+    P = model.prm(ii).ampl * model.prm(ii).map;
+    model.P(:,model.idx) = P(:);
   case 'worm'
     % R = reshape(model.R,[model.n model.m])';
-    R = reshape(model.Rbase,[model.n model.m])';
+    % R = reshape(model.Rbase,[model.n model.m])';
     if model.prm(ii).mmap~=model.m || model.prm(ii).nmap~=model.n
       theta = linspace(-pi,pi-2*pi/model.n,model.n); % azimuth
       y = linspace(-model.height/2,model.height/2,model.m)'; %  
@@ -95,13 +99,14 @@ switch model.shape
       [Theta2,Y2] = meshgrid(theta2,y2);
       model.prm(ii).map = interp2(Theta2,Y2,model.prm(ii).map,Theta,Y);
     end
-    R = R + model.prm(ii).ampl * model.prm(ii).map;
-    R = R'; 
+    % R = R + model.prm(ii).ampl * model.prm(ii).map;
+    % R = R'; 
     % model.R = R(:);
-    model.P(:,model.idx) = R(:);
+    P = model.prm(ii).ampl * model.prm(ii).map;
+    model.P(:,model.idx) = P(:);
   case 'torus'
     % r = reshape(model.r,[model.n model.m])';
-    r = reshape(model.rbase,[model.n model.m])';
+    % r = reshape(model.rbase,[model.n model.m])';
     if model.prm(ii).mmap~=model.m || model.prm(ii).nmap~=model.n
       Theta = model.Theta;
       Phi = model.Phi;
@@ -115,13 +120,14 @@ switch model.shape
       [Theta2,Phi2] = meshgrid(theta2,phi2);
       model.prm(ii).map = interp2(Theta2,Phi2,model.prm(ii).map,Theta,Phi);
     end
-    r = r + model.prm(ii).ampl * model.prm(ii).map;
-    r = r'; 
+    % r = r + model.prm(ii).ampl * model.prm(ii).map;
+    % r = r'; 
     % model.r = r(:);
-    model.P(:,model.idx) = r(:);
+    P = model.prm(ii).ampl * model.prm(ii).map;
+    model.P(:,model.idx) = P(:);
   case 'disk'
     % Z = reshape(model.Z,[model.n model.m])';
-    Z = reshape(model.Zbase,[model.n model.m])';
+    % Z = reshape(model.Zbase,[model.n model.m])';
     if strcmp(model.opts.coords,'cartesian')
       error('Bumps in cartesian coordinates not implemented for shape ''disk''.');
     elseif strcmp(model.opts.coords,'polar')
@@ -137,8 +143,9 @@ switch model.shape
         [Theta2,R2] = meshgrid(theta2,phi2);
         model.prm(ii).map = interp2(Theta2,R2,model.prm(ii).map,Theta,R);
       end
-      Z = Z + model.prm(ii).ampl * model.prm(ii).map;
-      Z = Z'; 
-      model.P(:,model.idx) = Z(:);
+      % Z = Z + model.prm(ii).ampl * model.prm(ii).map;
+      % Z = Z'; 
+      P = model.prm(ii).ampl * model.prm(ii).map;
+      model.P(:,model.idx) = P(:);
     end
 end

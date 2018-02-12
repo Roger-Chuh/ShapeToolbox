@@ -10,7 +10,10 @@ function model = objDefaultPerturbationPrms(model,perturbation)
 % 2016-12-17 - ts - changed the order of prms in the vector
 % 2017-05-26 - ts - changed (again) the order of prms in the
 %                    vector---how the f**k were they wrong?
-
+% 2018-02-09 - ts - added support for ellipsoid
+% 2018-02-10 - ts - removed calls to objInterpCurves (pretty sure
+%                    they had been left here by accident)
+  
 ii = model.idx;
 model.prm(ii).perturbation = perturbation;
 switch perturbation
@@ -18,7 +21,7 @@ switch perturbation
     ;
   case 'sine'
     switch model.shape
-      case 'sphere'
+      case {'sphere','ellipsoid'}
         model.prm(ii).cprm = [8 0 0 .1 0];
       case 'plane'
         model.prm(ii).cprm = [8 0 0 .05 0];
@@ -41,7 +44,7 @@ switch perturbation
 
   case 'noise'
     switch model.shape
-      case 'sphere'
+      case {'sphere','ellipsoid'}
         model.prm(ii).nprm = [8 1 0 45 .1 0];
       case 'plane'
         model.prm(ii).nprm = [8 1 0 45 .1 0];
@@ -64,21 +67,18 @@ switch perturbation
 
   case 'bump'
     switch model.shape
-      case 'sphere'
+      case {'sphere','ellipsoid'}
         model.prm(ii).prm = [20 pi/12 .1];
       case 'plane'
         model.prm(ii).prm = [20 .05 .1];
       case {'cylinder','worm'}
         model.prm(ii).prm = [20 pi/12 .1];
-        model = objInterpCurves(model);
       case 'torus'
         model.prm(ii).prm = [20 pi/12 .1];
       case 'revolution'
         model.prm(ii).prm = [20 pi/12 .1];
-        model = objInterpCurves(model);
       case 'extrusion'
         model.prm(ii).prm = [20 pi/12 .1];
-        model = objInterpCurves(model);
       case 'disk'
         model.prm(ii).prm = [20 .05 .1];
       otherwise

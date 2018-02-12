@@ -88,6 +88,9 @@ function m1 = objBlend(m1,m2,varargin)
 % 2016-06-20 - ts - fixed handling empty weight vector
 % 2016-09-23 - ts - allow blending worm with cylinder-like things
 % 2016-12-20 - ts - also average the direction values in worm shapes
+% 2018-02-09 - ts - added support for ellipsoid
+% 2018-02-10 - ts - fixed blending for disk
+  
   
 % TODO:
 % - Better parsing of input arguments.
@@ -98,101 +101,118 @@ function m1 = objBlend(m1,m2,varargin)
 % - Vectors of weights are accepted as input but not really
 %   used---implement
 
-dosave = false;
-filename = '';
-[w,par] = parseparams(varargin);
-if ~isempty(par)
-  ii = 1;
-  while ii<=length(par)
-    if ischar(par{ii})
-      switch lower(par{ii})
-        case 'save'
-          if ii<length(par) && isscalar(par{ii+1})
-            ii = ii + 1;
-            dosave = par{ii};
-          else
-            error('No value or a bad value given for option ''save''.');
-          end
-        otherwise
-          filename = par{ii};
-          dosave = true;
+  dosave = false;
+  filename = '';
+  [w,par] = parseparams(varargin);
+  if ~isempty(par)
+    ii = 1;
+    while ii<=length(par)
+      if ischar(par{ii})
+        switch lower(par{ii})
+          case 'save'
+            if ii<length(par) && isscalar(par{ii+1})
+              ii = ii + 1;
+              dosave = par{ii};
+            else
+              error('No value or a bad value given for option ''save''.');
+            end
+          otherwise
+            filename = par{ii};
+            dosave = true;
+        end
+      end
+      ii = ii + 1;
+    end
+  end
+
+  if isempty(w)
+    w = [.5 .5];
+  else
+    w = w{1};
+    if isscalar(w)
+      if ~((w<=1) && (w>=0))
+        error('With three input arguments, the weight has to be in range [0,1].');
+      end
+      w(2) = 1 - w;
+    else
+      tot = w(1) + w(2);
+      w(1) = w(1)./tot;
+      w(2) = w(2)./tot;
+    end
+  end
+
+  if isempty(filename)
+    filename = sprintf('%s_%03d_%03d.obj',m1.shape,round(100*w(1)),round(100*w(2)));
+  end
+
+  if ~strcmp(m1.shape,m2.shape)
+    shapes = {'cylinder','revolution','extrusion','worm'};
+    if ~(ismember(m1.shape,shapes) && ismember(m2.shape,shapes))
+      shapes = {'sphere','ellipsoid'};
+      if ~(ismember(m1.shape,shapes) && ismember(m2.shape,shapes))
+        error('Incompatible shapes.');
       end
     end
-    ii = ii + 1;
   end
-end
 
-if isempty(w)
-  w = [.5 .5];
-else
-  w = w{1};
-  if isscalar(w)
-    if ~((w<=1) && (w>=0))
-      error('With three input arguments, the weight has to be in range [0,1].');
+  switch m1.shape
+    case 'sphere'
+      if strcmp(m2.shape,'ellipsoid')
+        m1.R = m1.R * [1 1 1];
+        m1.super = w(1)*[1 1] + w(2)*m2.super;
+      end
+      m1.R = w(1)*m1.R + w(2)*m2.R;
+    case 'ellipsoid'
+      if strcmp(m2.shape,'sphere')
+        m2.R = m2.R * [1 1 1];
+        m2.super = [1 1];
+      end
+      m1.R = w(1)*m1.R + w(2)*m2.R;
+      m1.super = w(1)*m1.super + w(2)*m2.super;
+    case {'plane','disk'}
+      m1.X = w(1)*m1.X + w(2)*m2.X;
+      m1.Y = w(1)*m1.Y + w(2)*m2.Y;
+      m1.Z = w(1)*m1.Z + w(2)*m2.Z;
+    case {'cylinder','revolution','extrusion'}
+      m1.R = w(1)*m1.R + w(2)*m2.R;
+      m1.Y = w(1)*m1.Y + w(2)*m2.Y;
+      m1.spine.X = w(1)*m1.spine.X + w(2)*m2.spine.X;
+      m1.spine.Z = w(1)*m1.spine.Z + w(2)*m2.spine.Z;
+    case 'worm'
+      m1.R = w(1)*m1.R + w(2)*m2.R;
+      m1.X = w(1)*m1.X + w(2)*m2.X;
+      m1.Y = w(1)*m1.Y + w(2)*m2.Y;
+      m1.Z = w(1)*m1.Z + w(2)*m2.Z;
+      m1.spine.X = w(1)*m1.spine.X + w(2)*m2.spine.X;
+      m1.spine.Y = w(1)*m1.spine.Y + w(2)*m2.spine.Y;
+      m1.spine.Z = w(1)*m1.spine.Z + w(2)*m2.spine.Z;
+      m1.spine.D = w(1)*m1.spine.D + w(2)*m2.spine.D;
+    case 'torus'
+      m1.R = w(1)*m1.R + w(2)*m2.R;
+      m1.r = w(1)*m1.r + w(2)*m2.r;
+      m1.super = w(1)*m1.super + w(2)*m2.super;
+      % case 'disk'
+      %   m1.Y = w(1)*m1.Y + w(2)*m2.Y;
+    otherwise
+      error('Unknown or unsupported shape.');
+  end
+
+  m1 = objMakeVertices(m1);
+
+  m1.normals = [];
+  m1.faces = [];
+
+  if dosave
+    m1.filename = filename;
+    % Add file name extension if needed
+    if isempty(regexp(m1.filename,'\.obj$'))
+      m1.filename = [m1.filename,'.obj'];
     end
-    w(2) = 1 - w;
-  else
-    tot = w(1) + w(2);
-    w(1) = w(1)./tot;
-    w(2) = w(2)./tot;
+    m1 = objSave(m1);
   end
-end
 
-if isempty(filename)
-   filename = sprintf('%s_%03d_%03d.obj',m1.shape,round(100*w(1)),round(100*w(2)));
-end
-
-shapes = {'cylinder','revolution','extrusion','worm'};
-if ~strcmp(m1.shape,m2.shape)
-  if ~(ismember(m1.shape,shapes) && ismember(m2.shape,shapes))
-    error('Incompatible shapes.');
+  if ~nargout
+    clear m1
   end
-end
 
-switch m1.shape
-  case 'sphere'
-    m1.R = w(1)*m1.R + w(2)*m2.R;
-  case 'plane'
-    m1.X = w(1)*m1.X + w(2)*m2.X;
-    m1.Y = w(1)*m1.Y + w(2)*m2.Y;
-    m1.Z = w(1)*m1.Z + w(2)*m2.Z;
-  case {'cylinder','revolution','extrusion'}
-    m1.R = w(1)*m1.R + w(2)*m2.R;
-    m1.Y = w(1)*m1.Y + w(2)*m2.Y;
-    m1.spine.X = w(1)*m1.spine.X + w(2)*m2.spine.X;
-    m1.spine.Z = w(1)*m1.spine.Z + w(2)*m2.spine.Z;
-  case 'worm'
-    m1.R = w(1)*m1.R + w(2)*m2.R;
-    m1.X = w(1)*m1.X + w(2)*m2.X;
-    m1.Y = w(1)*m1.Y + w(2)*m2.Y;
-    m1.Z = w(1)*m1.Z + w(2)*m2.Z;
-    m1.spine.X = w(1)*m1.spine.X + w(2)*m2.spine.X;
-    m1.spine.Y = w(1)*m1.spine.Y + w(2)*m2.spine.Y;
-    m1.spine.Z = w(1)*m1.spine.Z + w(2)*m2.spine.Z;
-    m1.spine.D = w(1)*m1.spine.D + w(2)*m2.spine.D;
-  case 'torus'
-    m1.R = w(1)*m1.R + w(2)*m2.R;
-    m1.r = w(1)*m1.r + w(2)*m2.r;
-  case 'disk'
-    m1.Y = w(1)*m1.Y + w(2)*m2.Y;
-  otherwise
-    error('Unknown or unsupported shape.');
-end
-
-m1 = objMakeVertices(m1);
-
-m1.normals = [];
-m1.faces = [];
-
-if dosave
-  m1.filename = filename;
-  % Add file name extension if needed
-  if isempty(regexp(m1.filename,'\.obj$'))
-    m1.filename = [m1.filename,'.obj'];
-  end
-  m1 = objSave(m1);
-end
-
-if ~nargout
-   clear m1
 end
