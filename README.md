@@ -383,9 +383,6 @@ For an ellipsoid, give three radius values (x-, y-, and z-directions). The defau
 m = objMakeNoise('ellipsoid',[8 1 60 30 .1],'radius',[1 1.5 2])
 ```
 
-
-TODO: Setting radii for torus, ellipsoid.
-
 ### Super-ellipsoid and super-torus
 
 The super-ellipsoid and tuper-toroid are generalizations of the ellipse and torus. There are two extra parameters needed for these (mathematically, exponents for sines and cosines in their parametric representations). Use the option `'super'` to define these. The best way to get an idea of their effect is through examples:

@@ -18,7 +18,8 @@ function model = objMakeHeightMap(model)
 %                    them to the model yet
 % 2018-02-11 - ts - perturbations were still added too early; fixed
 %                   added support for ellipsoid
-
+% 2018-05-16 - ts - fixed missing transposes before saving perturbation
+  
 % TODO:
 % - you now use both model.idx and ii to index the current
 %   parameter set. unify.
@@ -44,7 +45,7 @@ switch model.shape
     % R = R + model.prm(ii).ampl * model.prm(ii).map;
     % R = R'; 
     % model.R = R(:);
-    P = model.prm(ii).ampl * model.prm(ii).map;
+    P = model.prm(ii).ampl * model.prm(ii).map';
     model.P(:,model.idx) = P(:);
   case 'plane'
     % Z = reshape(model.Z,[model.n model.m])';
@@ -63,7 +64,7 @@ switch model.shape
     % Z = Z + model.prm(ii).ampl * model.prm(ii).map;
     % Z = Z'; 
     % model.Z = Z(:);
-    P = model.prm(ii).ampl * model.prm(ii).map;
+    P = model.prm(ii).ampl * model.prm(ii).map';
     model.P(:,model.idx) = P(:);
   case {'cylinder','revolution','extrusion'}
     % R = reshape(model.R,[model.n model.m])';
@@ -83,7 +84,7 @@ switch model.shape
     % R = R + model.prm(ii).ampl * model.prm(ii).map;
     % R = R'; 
     % model.R = R(:);
-    P = model.prm(ii).ampl * model.prm(ii).map;
+    P = model.prm(ii).ampl * model.prm(ii).map';
     model.P(:,model.idx) = P(:);
   case 'worm'
     % R = reshape(model.R,[model.n model.m])';
@@ -102,7 +103,7 @@ switch model.shape
     % R = R + model.prm(ii).ampl * model.prm(ii).map;
     % R = R'; 
     % model.R = R(:);
-    P = model.prm(ii).ampl * model.prm(ii).map;
+    P = model.prm(ii).ampl * model.prm(ii).map';
     model.P(:,model.idx) = P(:);
   case 'torus'
     % r = reshape(model.r,[model.n model.m])';
@@ -123,7 +124,7 @@ switch model.shape
     % r = r + model.prm(ii).ampl * model.prm(ii).map;
     % r = r'; 
     % model.r = r(:);
-    P = model.prm(ii).ampl * model.prm(ii).map;
+    P = model.prm(ii).ampl * model.prm(ii).map';
     model.P(:,model.idx) = P(:);
   case 'disk'
     % Z = reshape(model.Z,[model.n model.m])';
@@ -145,7 +146,7 @@ switch model.shape
       end
       % Z = Z + model.prm(ii).ampl * model.prm(ii).map;
       % Z = Z'; 
-      P = model.prm(ii).ampl * model.prm(ii).map;
+      P = model.prm(ii).ampl * model.prm(ii).map';
       model.P(:,model.idx) = P(:);
     end
 end

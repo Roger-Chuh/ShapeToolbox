@@ -36,6 +36,7 @@ function model = objParseArgs(model,par)
 % 2018-02-09 - ts - added support for parameters for
 %                    superellipsoid, supertoroid
 % 2018-02-10 - ts - changed some error messages
+% 2018-02-16 - ts - fixed error message for angle
   
 % Flag to indicate whether uv-coordinate computation was set to false
 % explicitly.  This is used so that the option 'uvcoords' can be used
@@ -329,7 +330,7 @@ function model = objParseArgs(model,par)
               ii = ii+1;
               model.opts.tilt_angle = par{ii};
             else
-              error('No value or a bad value given for option ''max''.');
+              error('No value or a bad value given for option ''angle''.');
             end
           case 'coords'
             if isempty(strmatch(model.shape,{'disk','disc'},'exact'))

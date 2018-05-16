@@ -24,7 +24,9 @@ function model = objAddPerturbation(model)
 %                    sine perturbation to a sphere
 % 2018-01-21 - ts - included objRotMat in this file
 % 2018-02-09 - ts - added support for ellipsoid
-
+% 2018-02-13 - ts - fixed modulation of torus radius now that the
+%                    radius has two parameters
+  
 % TODO: 
 % - objRemCaps for worm
 % - perturbation normal to the surface
@@ -40,7 +42,7 @@ function model = objAddPerturbation(model)
       if ~isempty(model.opts.rprm)
         rprm = model.opts.rprm;
         for ii = 1:size(rprm,1)
-          model.R = model.R + rprm(ii,3) * sin(rprm(ii,1)*model.Theta + rprm(ii,2));
+          model.R = model.R + rprm(ii,3) * sin(rprm(ii,1)*model.Theta + rprm(ii,2)) * [1 1];
         end
       end
   end

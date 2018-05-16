@@ -1,9 +1,8 @@
-function objDesigner(nmeshpoints)
-  
-% OBJDESIGNER
+function objDesigner()
+
+  % OBJDESIGNER
 %
 % Usage: objDesigner()
-%        objDesigner(nmeshpoints)
 %
 % A rudimentary graphical tool built on top of the shapetoolbox
 % functions. This can be used to design models and test the effect
@@ -13,896 +12,1191 @@ function objDesigner(nmeshpoints)
 % functions. For full functionality, it's better to call the
 % objMake*- and other functions from your own code.
 %
-% The optional input argument can be used to set the model size
-% (mesh resolution / number of vertices). If not give, the default
-% is used (see objMakePlain for the default mesh sizes).
-  
-% 2016-12-12 - ts - first version
-% 2016-12-13 - ts - second first version
-% 2016-12-14 - ts - included the revolution/extrusion profiles
-%                   included more perturbation types
-% 2016-12-20 - ts - oops, several, several changes between then and now
-% 2016-12-29 - ts - improved hiding / showing windows,
-%                    enabling/disabling curves
-% 2017-11-17 - ts - fixes to figure and axes handles in callbacks
-%                    to make it work in octave
-%                   enabled bumps for tori
-% 2017-11-19 - ts - 'axis equal' before plotting anything caused a
-%                     problem in latest octave (4.2.1); fixed
-% 2017-11-21 - ts - indicate errors (red) when importing/exporting/saving
-% 2018-01-17 - ts - updated help
-% 2018-01-23 - ts - use objview instead of objshow
+% The current version works only on Matlab.
 
-% TODO
-% print current parameters / command to produce the shape
-% load existing / saved model to gui
-% when loading, get default parameters for all perturbations and shapes
+% Copyright (C) 2018 Toni Saarela
+% 2018-02-14 - ts - first version
+% 2018-xx-xx - ts - several updates
+% 2018-05-16 - ts - polish
   
-  if ~nargin || isempty(nmeshpoints)
-    nmeshpoints = 128;
-  end
-  
-  fontsize = 8;
+  %------------------------------------------------------------
+  % Set things up   for gui
   
   scrsize = get(0,'ScreenSize');
-  scrsize = scrsize(3:4) - scrsize(1:2) + 1;
+  scrsize = scrsize(3:4);
   
-  figsize = [300 700; ...   % prm
-             300 380; ...   % preview
-             380 720;...    % profile
-             900 500];      % spine
+  fontsize = 8;
+  margin = 10;
+  col.txt.act   = [0 0 0];
+  col.txt.inact = [.5 .5 .5];
+  
+  figsize  = [800 500];  % size of main application window
+  shapesize = [245 450]; % size of shape parameter panel
+  pertsize = shapesize;  % perturbation parameter panel
+  prevsize = [265 400];  % preview pane;
+  % This is the axis size for preview, not figure window size:
+  prevfigsize = 200;
+  
+  listfigsize = [200 300];
+  curvefigsize = [300 600];
+  
+  isoctave = exist('OCTAVE_VERSION');  
+  
+  %------------------------------------------------------------
+  % Default model values
+  
+  default.shape.shape = 'sphere';
+  default.shape.types = {'sphere','ellipsoid','plane','cylinder','torus','disk','revolution','extrusion','worm'};  
 
-  fposy = scrsize(2) - 100 - figsize(:,2)';
-  fposy(end) = fposy(end) - 200; % spine
-  fposx = scrsize(1)/2 + [0 350 -410 -350] - figsize(:,1)'/2;
+  default.shape.sphere.npoints = [64 128];
+  default.shape.sphere.radius = '1';
   
-  lines = [560:-10:20];
+  default.shape.plane.npoints = [128 128];
+  default.shape.plane.height  = '1';
+  default.shape.plane.width   = '1';
   
-  %------------------------------------------------------------
-  % Preview window
+  default.shape.disk.npoints = [128 128];
+  default.shape.disk.radius = '1';
 
-  h.preview.f = figure('Color','white',...
-                       'Units','pixels',...
-                       'Menubar','none',...
-                       'NumberTitle','Off',...
-                       'Name','Preview',...
-                       'Visible','Off');
-  pos = [fposx(2) fposy(2) figsize(2,:)];
-  set(h.preview.f,'Position',pos);
+  default.shape.cylinder.npoints = [128 128];
+  default.shape.cylinder.height  = '2*pi';
+  default.shape.cylinder.radius  = '1';
+  default.shape.cylinder.caps  = 0;
   
-  h.preview.ax = axes('Units','pixels','Position',[20 100 260 260]);
+  default.shape.revolution = default.shape.cylinder;
+  default.shape.revolution.curve(1).rcurve = ones(default.shape.revolution.npoints(1),1);
+  default.shape.revolution.curve(1).xdata = [1 1];
+  default.shape.revolution.curve(1).ydata = [-pi pi];
+  default.shape.revolution.curve(1).ysmooth = linspace(-pi,pi,default.shape.revolution.npoints(1))';
+  default.shape.revolution.curve(1).xsmooth = ones(default.shape.revolution.npoints(1),1);
+  default.shape.revolution.curve(1).connect = false;
+  default.shape.revolution.curve(1).interp = 'spline';
 
-  
-  %------------------------------------------------------------
-  % Revolution / extrusion profile window
-  
-  h.curve.f = figure('Color','white',...
-                     'Units','pixels',...
-                     'Menubar','none',...
-                     'NumberTitle','Off',...
-                     'Name','Profile',...
-                     'Visible','Off');
-  pos = [fposx(3) fposy(3) figsize(3,:)];
-  set(h.curve.f,'Position',pos);
-  
-  h.curve.ax(1) = axes('Units','pixels','Position',[30 290 200 400]);
-  h.curve.ax(2) = axes('Units','pixels','Position',[30  30 200 200]);
- 
-  %------------------------------------------------------------
-  % Spine profile window
-  
-  h.spine.f = figure('Color','white',...
-                     'Units','pixels',...
-                     'Menubar','none',...
-                     'NumberTitle','Off',...
-                     'Name','Spine',...
-                     'Visible','Off');
-  pos = [fposx(4) fposy(4) figsize(4,:)];
-  set(h.spine.f,'Position',pos);
-  
-  h.spine.ax(1) = axes('Units','pixels','Position',[ 30 120 230 310]);
-  h.spine.ax(2) = axes('Units','pixels','Position',[330 120 230 310]);
-  h.spine.ax(3) = axes('Units','pixels','Position',[630 120 230 310]);
-  
-  %------------------------------------------------------------
-  % Shape / parameter window
+  default.shape.revolution.curve(2).ecurve = ones(default.shape.revolution.npoints(2)+1,1);
+  default.shape.revolution.curve(2).xdata = [1 0 -1 0];
+  default.shape.revolution.curve(2).ydata = [0 1 0 -1];
+  default.shape.revolution.curve(2).ysmooth = sin(linspace(0,2*pi,default.shape.revolution.npoints(2)+1))';
+ default.shape.revolution.curve(2).xsmooth = cos(linspace(0,2*pi,default.shape.revolution.npoints(2)+1))';
 
-  h.prm.f = figure('Color','white',...
-                 'Units','pixels',...
-                 'Menubar','none',...
-                 'NumberTitle','Off',...
-                 'Name','objDesigner');
-  pos = [fposx(1) fposy(1) figsize(1,:)];
-  set(h.prm.f,'Position',pos);
+ default.shape.extrusion  = default.shape.revolution;
+  default.shape.worm       = default.shape.revolution;
+  
+  default.shape.ellipsoid.npoints = [128 128];
+  default.shape.ellipsoid.radius  = '1 1 1';
+  default.shape.ellipsoid.super   = '1 1';
+  
+  default.shape.torus.npoints      = [128 128];
+  default.shape.torus.radius       = '1 1';
+  default.shape.torus.minor_radius = '.4';
+  default.shape.torus.super        = '1 1';
+  default.shape.torus.rpar        = '';
+  
+  % Set all default values for shapes ABOVE this line
+  
+  % Copy parameter values from default fields for each shape
+  fns = fieldnames(default.shape);
+  for ii = 1:length(fns)
+    model.shape.(fns{ii}) = default.shape.(fns{ii});
+  end
+  
+  
+  % Default perturbation values
+  
+  default.perturbation.name = 'none';
+  
+  default.perturbation.types = {'none','sine','noise','bump','custom'};
+
+  default.perturbation.none = [];
+  
+  default.perturbation.sine.cpar = [8 0 0 .1 0];
+  default.perturbation.sine.mpar = [];
+  default.perturbation.sine.tiltaxis = [];
+  default.perturbation.sine.tiltangle = [];
+  
+  default.perturbation.noise.npar = [8 1 0 30 .1 0];
+  default.perturbation.noise.mpar = [];
+  
+  default.perturbation.bump.par = [20 pi/12 .1];
+  default.perturbation.bump.max = false;
+  
+  default.perturbation.custom.par = {{},{},{},{}};
+  
+  % default.perturbation.list = [];
+  
+  % Set all default values for perturbations ABOVE this line
+  
+  % Copy parameter values from default fields for each shape
+  fns = fieldnames(default.perturbation);
+  for ii = 1:length(fns)
+    model.perturbation.list(1).(fns{ii}) = default.perturbation.(fns{ii});
+  end
+  
+  % The perturbation being edited.
+  model.perturbation.current = 1;
+  model.perturbation.use = 1;
+  
+  % List of perturbations:
+  %model.list = [];
+  
+  % Field m holds the actual model
+  model.m = [];
 
   %------------------------------------------------------------
+  % Main application window  
+  
+  h.main.f = figure('Color','white',...
+                    'Units','pixels',...
+                    'NumberTitle','Off',...
+                    'Name','objDesigner',...
+                    'Visible','Off');
+  
+  pos = [scrsize/2-figsize(1,:)/2 figsize(1,:)];
+  set(h.main.f,'Position',pos);
+  
   %------------------------------------------------------------
-  % Default values for perturbation parameters and input boxes
+  % Main panels
   
-  % figure(h.prm.f);
-  set(0,'CurrentFigure',h.prm.f);
+  % Preview area and axes
+  h.main.prev.pn = uipanel(h.main.f,'Title','Preview','FontSize',12,...
+                           'BackgroundColor','white',...
+                           'Units','pixels',...
+                           'Position',...
+                           [(figsize(1,1)-prevsize(1,1))/2 figsize(1,2)-prevsize(1,2)-margin prevsize]);
   
-  % Sine
-  h.prm.sine.header(1) = uicontrol('Style','text',...
-                                  'Position',[20 lines(7)+5 200 20],...
+  % Shape selection and parameters
+  h.main.shape.pn = uipanel(h.main.f,'Title','Shape','FontSize',12,...
+                            'BackgroundColor','white',...
+                            'Units','pixels',...
+                            'Position',[margin figsize(1,2)-shapesize(1,2)-margin shapesize]);  
+  
+
+  % Perturbation
+  h.main.pert.pn = uipanel(h.main.f,'Title','Perturbation','FontSize',12,...
+                           'BackgroundColor','white',...
+                           'Units','pixels',...
+                           'Position',[figsize(1)-pertsize(1,1)-margin figsize(1,2)-pertsize(1,2)-margin pertsize]); 
+  
+  % Command
+  % h.main.cmd.pn = uipanel(h.main.f,'Title','Command','FontSize',12,...
+  %                         'BackgroundColor','white',...
+  %                         'Units','pixels',...
+  %                         'Position',[margin margin 500 60]); 
+  
+  
+  %------------------------------------------------------------
+  % Shape and shape parameters
+  h.main.shape.shape = uicontrol('Parent',h.main.shape.pn,...
+                                 'Style', 'popupmenu',...
+                                 'String', default.shape.types,...
+                                 'FontSize',10,...
+                                 'Position', [10 shapesize(2)-40 100 20]);
+  
+
+  pos = get(h.main.pert.pn,'position');
+  parentsize = pos(3:4);
+  
+  panelsize = [225 70; 225 110; 225 140];
+  
+  
+  % Resolution / number of vertices
+  h.main.shape.reso.pn = uipanel(h.main.shape.pn,'Title','Model resolution','FontSize',10,...
+                                 'BackgroundColor','white',...
+                                 'Units','pixels',...
+                                 'Position',[margin parentsize(2)-panelsize(1,2)-50 panelsize(1,1) panelsize(1,2)]);  
+  
+  h.main.shape.reso.npoints(1) = uicontrol('Parent',h.main.shape.reso.pn,...
+                                           'Style', 'edit',...
+                                           'Position', [10 10 90 20],...
+                                           'HorizontalAlignment','left',...
+                                           'String','',...
+                                           'enable', 'on');
+  h.main.shape.reso.npoints_lab(1) = uicontrol('Parent',h.main.shape.reso.pn,...
+                                               'Style','text',...
+                                               'Position',[10 30 90 14],...
+                                               'FontSize',fontsize,...
+                                               'horizontalalignment','left',...
+                                               'foregroundcolor',col.txt.act,...
+                                               'String','Y or elevation');
+  
+  h.main.shape.reso.npoints(2) = uicontrol('Parent',h.main.shape.reso.pn,...
+                                           'Style', 'edit',...
+                                           'Position', [120 10 90 20],...
+                                           'HorizontalAlignment','left',...
+                                           'String','',...
+                                           'enable', 'on');
+  h.main.shape.reso.npoints_lab(2) = uicontrol('Parent',h.main.shape.reso.pn,...
+                                               'Style','text',...
+                                               'Position',[120 30 90 14],...
+                                               'FontSize',fontsize,...
+                                               'horizontalalignment','left',...
+                                               'foregroundcolor',col.txt.act,...
+                                               'String','X or azimuth');
+
+  % Model size and other basic prms
+  panelwidth = panelsize(2,1);
+  panelheight = panelsize(2,2);
+  h.main.shape.basic_pn = uipanel(h.main.shape.pn,'Title','Model size','FontSize',10,...
+                                  'BackgroundColor','white',...
+                                  'Units','pixels',...
+                                  'Position',[margin parentsize(2)-sum(panelsize(1:2,2))-60 panelsize(2,1) panelsize(2,2)]);  
+
+  h.main.shape.height = uicontrol('Parent',h.main.shape.basic_pn,...
+                                  'Style', 'edit',...
+                                  'Position', [10 panelheight-60 90 20],...
                                   'HorizontalAlignment','left',...
-                                  'String','Carrier parameters');
-  x = [20 60 100 140 180];
+                                  'String','',...
+                                  'enable', 'off');
+  h.main.shape.height_lab = uicontrol('Parent',h.main.shape.basic_pn,...
+                                      'Style','text',...
+                                      'Position',[10 panelheight-40 90 14],...
+                                      'FontSize',fontsize,...
+                                      'horizontalalignment','left',...
+                                      'foregroundcolor',col.txt.inact,...
+                                      'String','Height');
+
+  h.main.shape.width = uicontrol('Parent',h.main.shape.basic_pn,...
+                                 'Style', 'edit',...
+                                 'Position', [120 panelheight-60 90 20],...
+                                 'HorizontalAlignment','left',...
+                                 'String','',...
+                                 'enable', 'off');
+  h.main.shape.width_lab = uicontrol('Parent',h.main.shape.basic_pn,...
+                                     'Style','text',...
+                                     'Position',[120 panelheight-40 90 14],...
+                                     'FontSize',fontsize,...
+                                     'horizontalalignment','left',...
+                                     'foregroundcolor',col.txt.inact,...
+                                     'String','Width');
+  
+  
+  h.main.shape.radius = uicontrol('Parent',h.main.shape.basic_pn,...
+                                  'Style', 'edit',...
+                                  'Position', [10 panelheight-100 90 20],...
+                                  'HorizontalAlignment','left',...
+                                  'String','');
+  h.main.shape.radius_lab = uicontrol('Parent',h.main.shape.basic_pn,...
+                                      'Style','text',...
+                                      'Position',[10 panelheight-80 100 14],...
+                                      'FontSize',fontsize,...
+                                      'horizontalalignment','left',...
+                                      'String','Radius');
+  
+  h.main.shape.minor_radius = uicontrol('Parent',h.main.shape.basic_pn,...
+                                        'Style', 'edit',...
+                                        'Position', [120 panelheight-100 90 20],...
+                                        'HorizontalAlignment','left',...
+                                        'String','',...
+                                        'TooltipString','Radius of the ''tube'' of the torus');
+  h.main.shape.minor_radius_lab = uicontrol('Parent',h.main.shape.basic_pn,...
+                                            'Style','text',...
+                                            'Position',[120 panelheight-80 90 14],...
+                                            'FontSize',fontsize,...
+                                            'horizontalalignment','left',...
+                                            'String','Minor radius',...
+                                            'TooltipString','Radius of the ''tube'' of the torus');
+  
+  
+  % Other shape prms
+  panelwidth = panelsize(3,1);
+  panelheight = panelsize(3,2);
+  h.main.shape.other_pn = uipanel(h.main.shape.pn,'Title','Other params','FontSize',10,...
+                                  'BackgroundColor','white',...
+                                  'Units','pixels',...
+                                  'Position',[margin parentsize(2)-sum(panelsize(1:3,2))-60 225 panelheight]);  
+  
+  h.main.shape.super = uicontrol('Parent',h.main.shape.other_pn,...
+                                 'Style', 'edit',...
+                                 'Position', [10 panelheight-60 60 20],...
+                                 'HorizontalAlignment','left',...
+                                 'String','',...
+                                 'enable', 'off',...
+                                 'TooltipString','Two values, try something between 0 and 3');
+  h.main.shape.super_lab = uicontrol('Parent',h.main.shape.other_pn,...
+                                     'Style','text',...
+                                     'Position',[10 panelheight-40 120 14],...
+                                     'FontSize',fontsize,...
+                                     'horizontalalignment','left',...
+                                     'foregroundcolor',col.txt.inact,...
+                                     'String','Superellipsoid prm',...
+                                     'TooltipString','Two values, try something between 0 and 3');
+
+  tooltip = 'Modulate main radius of torus: radial_freq, phase, amplitude';
+  h.main.shape.rpar = uicontrol('Parent',h.main.shape.other_pn,...
+                                'Style', 'edit',...
+                                'Position', [10 panelheight-100 120 20],...
+                                'HorizontalAlignment','left',...
+                                'String','',...
+                                'enable', 'off',...
+                                'TooltipString',tooltip);
+  h.main.shape.rpar_lab = uicontrol('Parent',h.main.shape.other_pn,...
+                                    'Style','text',...
+                                    'Position',[10 panelheight-80 120 14],...
+                                    'FontSize',fontsize,...
+                                    'horizontalalignment','left',...
+                                    'foregroundcolor',col.txt.inact,...
+                                    'TooltipString',tooltip,...
+                                    'String','Radius modulation');
+  
+  
+  h.main.shape.caps = uicontrol('Parent',h.main.shape.other_pn,...
+                                'Style', 'checkbox',...
+                                'Value',0,...
+                                'Position', [10 panelheight-130 100 20],...
+                                'HorizontalAlignment','left',...
+                                'enable', 'off',...
+                                'String','Caps',...
+                                'FontSize',fontsize,...
+                                'TooltipString','Close cylinder-like shapes with caps.');
+  
+  % % Reset
+  h.main.shape.reset = uicontrol('Parent',h.main.shape.pn,...
+                                 'Style', 'pushbutton',...
+                                 'String', 'Reset',...
+                                 'FontSize',fontsize,...
+                                 'Position', [10 10 60 20],...
+                                 'TooltipString','Reset shape to default values');   
+  %------------------------------------------------------------
+  % Preview, model export etc.
+  
+  pos = get(h.main.prev.pn,'position');
+  parentsize = pos(3:4);
+
+  h.main.prev.ax = axes('Parent',h.main.prev.pn,'Units','pixels','Position',...
+                        [(parentsize(1)-prevfigsize)/2 ...
+                      (parentsize(1)-prevfigsize)/2+(parentsize(2)-parentsize(1)) ...
+                      prevfigsize ...
+                      prevfigsize]);
+  
+  h.main.prev.showax = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                 'Style', 'checkbox',...
+                                 'Position', [10 10 100 20],...
+                                 'String','Show axes',...
+                                 'FontSize',fontsize,...
+                                 'Value', 0);
+
+  
+  h.main.export.lab = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                 'Style','text',...
+                                'Position',[10 35 55 20],...
+                                'HorizontalAlignment','left',...
+                                'String','Variable',...
+                                'FontSize',fontsize);
+  
+  h.main.export.var = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                'Style','edit',...
+                                'Position',[70 35 50 20],...
+                                'HorizontalAlignment','left',...
+                                'String','model',...
+                                'TooltipString','Give a variable name for the model structure',...
+                                'FontSize',fontsize);
+  
+  h.main.export.btn = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                'Style', 'pushbutton',...
+                                'String', 'Export to workspace',...
+                                'TooltipString','Export the model structure to Matlab workspace',...
+                                'Position', [125 35 130 20],...
+                                'FontSize',fontsize);
+  
+  
+  h.main.save.model.lab = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                 'Style','text',...
+                                'Position',[10 65 55 20],...
+                                'HorizontalAlignment','left',...
+                                'String','Filename',...
+                                'FontSize',fontsize);
+  
+  h.main.save.model.filename = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                'Style','edit',...
+                                'Position',[70 65 50 20],...
+                                'HorizontalAlignment','left',...
+                                'String','model',...
+                                'TooltipString','Give a file name to save to',...
+                                'FontSize',fontsize);
+  
+  h.main.save.model.btn = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                'Style', 'pushbutton',...
+                                'String', 'Save .obj file',...
+                                'TooltipString','Save the model to a Wavefront obj file',...
+                                'Position', [125 65 130 20],...
+                                'FontSize',fontsize);  
+  
+  h.main.prev.reset.btn = uicontrol('Parent',h.main.prev.pn,'Units','pixels',...
+                                'Style', 'pushbutton',...
+                                'String', 'Reset view',...
+                                'TooltipString','Restore default view of the model',...
+                                'Position', [125 10 130 20],...
+                                'FontSize',fontsize);  
+    
+  %------------------------------------------------------------
+  % Perturbations
+  
+  h.main.pert.pert = uicontrol('Parent',h.main.pert.pn,...
+                               'Style', 'popupmenu',...
+                               'String', default.perturbation.types,...
+                               'Position', [10 pertsize(2)-40 100 20],...
+                               'FontSize',10);
+  
+  h.main.pert.none.pn = [];
+  
+  % Set dialogs etc for sine perturbation
+    
+  pos = get(h.main.pert.pn,'position');
+  parentsize = pos(3:4);
+  
+  panelsize = [225 125; 225 125; 225 80];
+  
+  % panelheight = 140;
+  panelwidth = panelsize(1,1);
+  panelheight = panelsize(1,2);
+  
+  h.main.pert.sine.pn = uipanel(h.main.pert.pn,'Title','Carrier parameters','FontSize',10,...
+                            'BackgroundColor','white',...
+                            'Units','pixels',...
+                            'Position',[10 parentsize(2)-panelheight-45 panelwidth panelheight]);  
+
+  lines = panelheight - (15:20:135);
+
+  x = 10:32:170; % x = [10 50 90 130 170];
   labels = {'Freq','Ori','Ph','Ampl','Grp'};
   tooltip = {'Frequency','Orientation','Phase','Amplitude','Group'};
-  y = lines(9);
   for ii = 1:length(labels)
-    h.prm.sine.label(1,ii) = uicontrol('Style','text',...
-                                      'Position',[x(ii) y 30 20],...
-                                      'FontSize',8,...
-                                      'String',labels{ii},...
-                                      'TooltipString',tooltip{ii});
+    h.main.pert.sine.label(1,ii) = uicontrol('Parent',h.main.pert.sine.pn,...
+                                             'Style','text',...
+                                             'Position',[x(ii) lines(2) 30 14],...
+                                             'FontSize',fontsize,...
+                                             'String',labels{ii},...
+                                             'TooltipString',tooltip{ii});
   end
-  vals = [8 0 0 .1 0; 0 0 0 0 0; 0 0 0 0 0];
-  y = lines(11:3:17);
-  for ii = 1:size(vals,1)
-    for jj = 1:size(vals,2)
-      h.prm.sine.carr(ii,jj) = uicontrol('Style', 'edit',...
-                                        'Position', [x(jj) y(ii) 30 20],...
-                                        'String',num2str(vals(ii,jj)),...
-                                        'TooltipString',tooltip{jj});
+
+  y = lines(3:6);
+  for ii = 1:4
+    for jj = 1:5
+      h.main.pert.sine.cpar(ii,jj) = uicontrol('Parent',h.main.pert.sine.pn,...
+                                               'Style', 'edit',...
+                                               'Position', [x(jj) y(ii) 30 20],...
+                                               'TooltipString',tooltip{jj});
     end
   end
+
+  % h.main.pert.sine.reset.cpar = uicontrol('Parent',h.main.pert.sine.pn,...
+  %                                   'Style', 'pushbutton',...
+  %                                   'String', 'Reset',...
+  %                                   'FontSize',fontsize,...
+  %                                   'Position', [10 lines(7) 50 20],...
+  %                                   'TooltipString','Reset to default values.');
+    
   
-  h.prm.sine.reset.carr = uicontrol('Style', 'pushbutton',...
-                                   'String', 'Reset',...
-                                   'FontSize',8,...
-                                   'Position', [20 lines(20) 50 20],...
-                                   'Callback', {@resetPrm,h.prm.sine.carr,'sine','carr'},...
-                                   'TooltipString','Reset to default values.');
-  
-  
-  h.prm.sine.header(2) = uicontrol('Style','text',...
-                                  'Position',[20 lines(23) 200 20],...
-                                  'HorizontalAlignment','left',...
-                                  'String','Modulator parameters');
-  y = lines(25);
+  panelwidth = panelsize(2,1);
+  panelheight = panelsize(2,2);  
+  h.main.pert.sine.pn(2) = uipanel(h.main.pert.pn,'Title','Modulator parameters','FontSize',10,...
+                                   'BackgroundColor','white',...
+                                   'Units','pixels',...
+                                   'Position',[10 parentsize(2)-sum(panelsize(1:2,2))-45 panelwidth panelheight]);  
+
+  lines = panelheight - (15:20:135);
+
+  % x = [10 50 90 130 170];
+  labels = {'Freq','Ori','Ph','Ampl','Grp'};
+  tooltip = {'Frequency','Orientation','Phase','Amplitude','Group'};
   for ii = 1:length(labels)
-    h.prm.sine.label(2,ii) = uicontrol('Style','text',...
-                                      'Position',[x(ii) y 30 20],...
-                                      'FontSize',8,...
-                                      'String',labels{ii},...
-                                      'TooltipString',tooltip{ii});
-  end  
-  vals = [0 0 0 0 0; 0 0 0 0 0; 0 0 0 0 0];
-  y = lines(27:3:33);
-  for ii = 1:size(vals,1)
-    for jj = 1:size(vals,2)
-      h.prm.sine.mod(ii,jj) = uicontrol('Style', 'edit',...
-                                       'Position', [x(jj) y(ii) 30 20],...
-                                       'String',num2str(vals(ii,jj)),...
-                                       'TooltipString',tooltip{jj});
+    h.main.pert.sine.label(2,ii) = uicontrol('Parent',h.main.pert.sine.pn(2),...
+                                             'Style','text',...
+                                             'Position',[x(ii) lines(2) 30 14],...
+                                             'FontSize',fontsize,...
+                                             'String',labels{ii},...
+                                             'TooltipString',tooltip{ii});
+  end
+
+  y = lines(3:6);
+  for ii = 1:4
+    for jj = 1:5
+      h.main.pert.sine.mpar(ii,jj) = uicontrol('Parent',h.main.pert.sine.pn(2),...
+                                               'Style', 'edit',...
+                                               'Position', [x(jj) y(ii) 30 20],...
+                                               'TooltipString',tooltip{jj});
     end
   end
-  
-  h.prm.sine.reset.mod = uicontrol('Style', 'pushbutton',...
-                                  'String', 'Reset',...
-                                  'FontSize',8,...
-                                  'Position', [20 lines(36) 50 20],...
-                                  'Callback', {@resetPrm,h.prm.sine.mod,'sine','mod'},...
-                                  'TooltipString','Reset to default values.');
-  
-  set(h.prm.sine.header,'Visible','Off');
-  set(h.prm.sine.label,'Visible','Off');
-  set(h.prm.sine.reset.carr,'Visible','Off');
-  set(h.prm.sine.reset.mod,'Visible','Off');
-  set(h.prm.sine.carr,'Visible','Off');
-  set(h.prm.sine.mod,'Visible','Off');
+
+  % h.main.pert.sine.reset.mpar = uicontrol('Parent',h.main.pert.sine.pn(2),...
+  %                                   'Style', 'pushbutton',...
+  %                                   'String', 'Reset',...
+  %                                   'FontSize',fontsize,...
+  %                                   'Position', [10 lines(7) 50 20],...
+  %                                   'TooltipString','Reset to default values.');
   
   
-  % Noise
-  h.prm.noise.header(1) = uicontrol('Style','text',...
-                                  'Position',[20 lines(7)+5 200 20],...
-                                  'HorizontalAlignment','left',...
-                                  'String','Carrier parameters');
-  x = [20 60 100 140 180 220];
+  panelwidth = panelsize(3,1);
+  panelheight = panelsize(3,2);  
+    
+  h.main.pert.sine.pn(3) = uipanel(h.main.pert.pn,'Title','Rotation','FontSize',10,...
+                                   'BackgroundColor','white',...
+                                   'Units','pixels',...
+                                   'Position',[10 parentsize(2)-sum(panelsize(:,2))-45 panelwidth panelheight]);  
+  
+  tooltip = {'Axis about which to rotate shape before adding perturbation',...
+             'Rotation angle in degrees'};
+  
+  h.main.pert.sine.tilt_lab(1) = uicontrol('Parent',h.main.pert.sine.pn(3),...
+                                            'Style','text',...
+                                            'Position',[10 30 90 14],...
+                                            'FontSize',fontsize,...
+                                            'horizontalalignment','left',...
+                                            'foregroundcolor',col.txt.inact,...
+                                            'String','Rotation axis',...
+                                            'TooltipString',tooltip{1});
+  h.main.pert.sine.tilt(1) = uicontrol('Parent',h.main.pert.sine.pn(3),...
+                                        'Style', 'edit',...
+                                        'horizontalalignment','left',...
+                                        'enable','on',...
+                                        'Position', [10 10 90 20],...
+                                        'TooltipString',tooltip{1});
+      
+  
+  h.main.pert.sine.tilt_lab(2) = uicontrol('Parent',h.main.pert.sine.pn(3),...
+                                            'Style','text',...
+                                            'Position',[120 30 90 14],...
+                                            'FontSize',fontsize,...
+                                            'horizontalalignment','left',...
+                                            'foregroundcolor',col.txt.inact,...
+                                            'String','Rotation angle',...
+                                            'TooltipString', tooltip{2});
+  h.main.pert.sine.tilt(2) = uicontrol('Parent',h.main.pert.sine.pn(3),...
+                                         'Style', 'edit',...
+                                         'horizontalalignment','left',...
+                                         'enable','on',...
+                                         'Position', [120 10 90 20],...
+                                         'TooltipString',tooltip{2});  
+  
+  
+  set(h.main.pert.sine.pn,'Visible','Off');
+  
+
+  
+  
+  
+  % Set dialogs etc for noise perturbation
+    
+  pos = get(h.main.pert.pn,'position');
+  parentsize = pos(3:4);
+  
+  panelsize = [225 125];
+  
+  panelwidth = panelsize(1);
+  panelheight = panelsize(2);  
+  
+  h.main.pert.noise.pn = uipanel(h.main.pert.pn,'Title','Carrier parameters','FontSize',10,...
+                            'BackgroundColor','white',...
+                            'Units','pixels',...
+                            'Position',[10 parentsize(2)-panelheight-45 panelwidth panelheight]);  
+
+  lines = panelheight - (15:20:135);
+
+  x = 10:32:170;% [10 50 90 130 170];
   labels = {'Freq','BW','Ori','BW','Ampl','Grp'};
-  tooltip = {'Frequency','Frequency bandwidth',...
-             'Orientation','Orientation bandwidth',...
-             'Amplitude','Group'};
-  y = lines(9);
+  tooltip = {'Frequency','Frequency bandwidth','Orientation',...
+             'Orientation bandwidth','Amplitude','Group'};
   for ii = 1:length(labels)
-    h.prm.noise.label(1,ii) = uicontrol('Style','text',...
-                                      'Position',[x(ii) y 30 20],...
-                                      'FontSize',8,...
-                                      'String',labels{ii},...
-                                       'TooltipString',tooltip{jj});
-  end
-  vals = [8 1 0 30 .1 0; 0 0 0 0 0 0; 0 0 0 0 0 0];
-  y = lines(11:3:17);
-  for ii = 1:size(vals,1)
-    for jj = 1:size(vals,2)
-      h.prm.noise.carr(ii,jj) = uicontrol('Style', 'edit',...
-                                         'Position', [x(jj) y(ii) 30 20],...
-                                         'String',num2str(vals(ii,jj)),...
-                                         'TooltipString',tooltip{jj});
-    end
+    h.main.pert.noise.label(1,ii) = uicontrol('Parent',h.main.pert.noise.pn,...
+                                             'Style','text',...
+                                             'Position',[x(ii) lines(2) 30 14],...
+                                             'FontSize',fontsize,...
+                                             'String',labels{ii},...
+                                             'TooltipString',tooltip{ii});
   end
   
-  h.prm.noise.reset.carr = uicontrol('Style', 'pushbutton',...
-                                    'String', 'Reset',...
-                                    'FontSize',8,...
-                                    'Position', [20 lines(20) 50 20],...
-                                    'Callback', {@resetPrm,h.prm.noise.carr,'noise','carr'},...
-                                    'TooltipString','Reset to default values.');
-  
-
-  h.prm.noise.header(2) = uicontrol('Style','text',...
-                                  'Position',[20 lines(23) 200 20],...
-                                  'HorizontalAlignment','left',...
-                                  'String','Modulator parameters');
-  labels = {'Freq','Ori','Ph','Ampl','Grp',''};
-  tooltip = {'Frequency','Orientation','Phase','Amplitude','Group',''};
-  y = lines(25);
-  for ii = 1:length(labels)
-    h.prm.noise.label(2,ii) = uicontrol('Style','text',...
-                                      'Position',[x(ii) y 30 20],...
-                                      'FontSize',8,...
-                                      'String',labels{ii},...
-                                       'TooltipString',tooltip{ii});
-  end  
-  vals = [0 0 0 0 0; 0 0 0 0 0; 0 0 0 0 0];
-  y = lines(27:3:33);
-  for ii = 1:size(vals,1)
-    for jj = 1:size(vals,2)
-      h.prm.noise.mod(ii,jj) = uicontrol('Style', 'edit',...
-                                        'Position', [x(jj) y(ii) 30 20],...
-                                        'String',num2str(vals(ii,jj)),...
-                                        'TooltipString',tooltip{jj});
+  y = lines(3:6);
+  for ii = 1:4
+    for jj = 1:6
+      h.main.pert.noise.npar(ii,jj) = uicontrol('Parent',h.main.pert.noise.pn,...
+                                               'Style', 'edit',...
+                                               'Position', [x(jj) y(ii) 30 20],...
+                                               'TooltipString',tooltip{jj});
     end
   end
 
-  h.prm.noise.reset.mod = uicontrol('Style', 'pushbutton',...
-                                   'String', 'Reset',...
-                                   'FontSize',8,...
-                                   'Position', [20 lines(36) 50 20],...
-                                   'Callback', {@resetPrm,h.prm.noise.mod,'noise','mod'},...
-                                   'TooltipString','Reset to default values.');
-
-  set(h.prm.noise.header,'Visible','Off');
-  set(h.prm.noise.label,'Visible','Off');
-  set(h.prm.noise.reset.carr,'Visible','Off');
-  set(h.prm.noise.reset.mod,'Visible','Off');
-  set(h.prm.noise.carr,'Visible','Off');
-  set(h.prm.noise.mod,'Visible','Off');
+  % h.main.pert.noise.reset.npar = uicontrol('Parent',h.main.pert.noise.pn,...
+  %                                   'Style', 'pushbutton',...
+  %                                   'String', 'Reset',...
+  %                                   'FontSize',fontsize,...
+  %                                   'Position', [10 lines(7) 50 20],...
+  %                                   'TooltipString','Reset to default values.');
+    
   
-  % Bumps
-  h.prm.bump.header(1) = uicontrol('Style','text',...
-                                  'Position',[20 lines(7)+5 200 20],...
-                                  'HorizontalAlignment','left',...
-                                  'String','Bump parameters');
-  x = [20 60 100];
+  h.main.pert.noise.pn(2) = uipanel(h.main.pert.pn,'Title','Modulator parameters','FontSize',10,...
+                                   'BackgroundColor','white',...
+                                   'Units','pixels',...
+                                   'Position',[10 parentsize(2)-2*panelheight-45 panelwidth panelheight]);  
+
+  lines = panelheight - (15:20:135);
+
+  %x = [10 50 90 130 170];
+  labels = {'Freq','Ori','Ph','Ampl','Grp'};
+  tooltip = {'Frequency','Orientation','Phase','Amplitude','Group'};
+  for ii = 1:length(labels)
+    h.main.pert.noise.label(2,ii) = uicontrol('Parent',h.main.pert.noise.pn(2),...
+                                             'Style','text',...
+                                             'Position',[x(ii) lines(2) 30 14],...
+                                             'FontSize',fontsize,...
+                                             'String',labels{ii},...
+                                             'TooltipString',tooltip{ii});
+  end
+
+  y = lines(3:6);
+  for ii = 1:4
+    for jj = 1:5
+      h.main.pert.noise.mpar(ii,jj) = uicontrol('Parent',h.main.pert.noise.pn(2),...
+                                               'Style', 'edit',...
+                                               'Position', [x(jj) y(ii) 30 20],...
+                                               'TooltipString',tooltip{jj});
+    end
+  end
+
+  % h.main.pert.noise.reset.mpar = uicontrol('Parent',h.main.pert.noise.pn(2),...
+  %                                   'Style', 'pushbutton',...
+  %                                   'String', 'Reset',...
+  %                                   'FontSize',fontsize,...
+  %                                   'Position', [10 lines(7) 50 20],...
+  %                                   'TooltipString','Reset to default values.');
+    
+  set(h.main.pert.noise.pn,'Visible','Off');
+  
+
+  
+  % Set dialogs etc for bumps
+    
+  pos = get(h.main.pert.pn,'position');
+  parentsize = pos(3:4);
+  
+  panelsize = [225 125];
+  
+  panelwidth = panelsize(1);
+  panelheight = panelsize(2);  
+  
+  h.main.pert.bump.pn = uipanel(h.main.pert.pn,'Title','Bump parameters','FontSize',10,...
+                            'BackgroundColor','white',...
+                            'Units','pixels',...
+                            'Position',[10 parentsize(2)-panelheight-45 panelwidth panelheight]);  
+
+  lines = panelheight - (15:20:135);
+
+  x = 10:32:170;% [10 50 90 130 170];
   labels = {'N','Size','Ampl'};
-  tooltip = {'Number of bumps/dents',...
-             'Size; space constant of Gaussian',...
-             'Amplitude. Negative values give dents'};
+  tooltip = {'Number of bumps','Size (sd of Gaussian)','Amplitude/height'};
+  for ii = 1:length(labels)
+    h.main.pert.bump.label(1,ii) = uicontrol('Parent',h.main.pert.bump.pn,...
+                                             'Style','text',...
+                                             'Position',[x(ii) lines(2) 30 14],...
+                                             'FontSize',fontsize,...
+                                             'String',labels{ii},...
+                                             'TooltipString',tooltip{ii});
+  end
+  
+  y = lines(3:6);
+  for ii = 1:4
+    for jj = 1:3
+      h.main.pert.bump.par(ii,jj) = uicontrol('Parent',h.main.pert.bump.pn,...
+                                               'Style', 'edit',...
+                                               'Position', [x(jj) y(ii) 30 20],...
+                                               'TooltipString',tooltip{jj});
+    end
+  end
+  
+  % Set dialogs etc for custom perturbation
+    
+  pos = get(h.main.pert.pn,'position');
+  parentsize = pos(3:4);
+  
+  panelsize = [225 75];
+  
+  panelwidth = panelsize(1);
+  panelheight = panelsize(2);  
+  
+  h.main.pert.custom.pn(1) = uipanel(h.main.pert.pn,'Title','Function from file','FontSize',10,...
+                                     'BackgroundColor','white',...
+                                     'Units','pixels',...
+                                     'Position',[10 parentsize(2)-panelheight-45 panelwidth panelheight]);  
+  
+  h.main.pert.custom.pn(2) = uipanel(h.main.pert.pn,'Title','Anonymous function (@)','FontSize',10,...
+                                    'BackgroundColor','white',...
+                                    'Units','pixels',...
+                                    'Position',[10 parentsize(2)-2*panelheight-45 panelwidth panelheight]);  
+  
+  h.main.pert.custom.pn(3) = uipanel(h.main.pert.pn,'Title','Matrix from workspace','FontSize',10,...
+                                     'BackgroundColor','white',...
+                                     'Units','pixels',...
+                                     'Position',[10 parentsize(2)-3*panelheight-45 panelwidth panelheight]);  
+  
+  
+  h.main.pert.custom.pn(4) = uipanel(h.main.pert.pn,'Title','Image file','FontSize',10,...
+                                    'BackgroundColor','white',...
+                                    'Units','pixels',...
+                                    'Position',[10 parentsize(2)-4*panelheight-45 panelwidth panelheight]);  
+  
+  lines = panelheight - [45 65];
+  x = [10 80 160];
 
-  y = lines(9);
+  labels = {'File','Args'};
+  tooltip = {'Filename','Input arguments for the function'};
   for ii = 1:length(labels)
-    h.prm.bump.label(1,ii) = uicontrol('Style','text',...
-                                      'Position',[x(ii) y 30 20],...
-                                      'FontSize',8,...
-                                      'String',labels{ii},...
-                                      'TooltipString',tooltip{ii});
-  end 
-  
-  vals = [20 pi/12 .1; 0 0 0; 0 0 0];
-  y = lines(11:3:17);
-  for ii = 1:length(y)
-    for jj = 1:length(x)
-      h.prm.bump.prm(ii,jj) = uicontrol('Style', 'edit',...
-                                       'Position', [x(jj) y(ii) 30 20],...
-                                       'String',num2str(vals(ii,jj)),...
-                                       'TooltipString',tooltip{jj});
-    end
+    h.main.pert.custom.label(ii,1) = uicontrol('Parent',h.main.pert.custom.pn(1),...
+                                               'Style','text',...
+                                             'horizontalalignment','left',...
+                                               'Position',[x(1) lines(ii) 60 14],...
+                                               'FontSize',fontsize,...
+                                               'String',labels{ii},...
+                                               'TooltipString',tooltip{ii});
   end
+  
+  wdt = [80 130];
+  for ii = 1:2
+    h.main.pert.custom.par(ii,1) = uicontrol('Parent',h.main.pert.custom.pn(1),...
+                                             'Style', 'edit',...
+                                             'horizontalalignment','left',...
+                                             'Position', [x(2) lines(ii) wdt(ii) 20],...
+                                             'TooltipString',tooltip{ii});
+  end  
+  
+  h.main.pert.custom.selectfile(1) = uicontrol('Parent',h.main.pert.custom.pn(1),...
+                                            'Style', 'pushbutton',...
+                                            'String', 'Browse',...
+                                            'FontSize',8,...
+                                            'Position', [x(3) lines(1) 60 20],...
+                                            'Callback', {@select_mfile_CB,h.main.pert.custom.par(1,1)});  
     
-  h.prm.bump.reset.prm = uicontrol('Style', 'pushbutton',...
-                                  'String', 'Reset',...
-                                  'FontSize',8,...
-                                  'Position', [20 lines(20) 50 20],...
-                                  'Callback', {@resetPrm,h.prm.bump.prm,'bump','prm'},...
-                                  'TooltipString','Reset to default values');
-                                  
-  set(h.prm.bump.header,'Visible','Off');
-  set(h.prm.bump.label,'Visible','Off');
-  set(h.prm.bump.reset.prm,'Visible','Off');
-  set(h.prm.bump.prm,'Visible','Off');
-  
-  % Custom
-  h.prm.custom.header(1) = uicontrol('Style','text',...
-                                  'Position',[20 lines(7)+5 200 20],...
-                                  'HorizontalAlignment','left',...
-                                  'String','Custom parameters');
-  x = 20;
-  labels = {'Function from file',...
-            'Arguments';...
-            'Anonymous function (@)',...
-            'Arguments';...
-            'Matrix from workspace',...
-            'Amplitude';...
-            'Image file',...
-            'Amplitude'};
-  tooltip = {'Name of the function',...
-             'Function input arguments as vector';...
-             'Define anonymous function',...
-             'Input arguments as a vector';...
-             sprintf('Name of matrix to use as height map.\nThe matrix variable has to be in current Matlab workspace.'),...
-             'Amplitude (scaling of height map)';...
-             'Name of image file to use as height map',...
-             'Amplitude (scaling of height map)'};
-  
-  y = lines([9 17 25 33]);
-  for ii = 1:length(labels)
-    h.prm.custom.label(ii,1) = uicontrol('Style','text',...
-                                        'Position',[x y(ii) 250 20],...
-                                        'FontSize',8,...
-                                        'HorizontalAlignment','left',...
-                                        'String',labels{ii,1},...
-                                        'TooltipString',tooltip{ii,1});
-  end 
-  
-  wdt = [250 250 250 165; 155 155 155 155];
-  x = [20 105];
-  y = lines([11 19 27 35]);
-  for ii = 1:length(y)
-    for jj = 1:2
-      h.prm.custom.prm(ii,jj) = uicontrol('Style', 'edit',...
-                                         'Position', [x(jj) y(ii)-(jj-1)*25 wdt(jj,ii) 20],...
-                                         'HorizontalAlignment','left',...
-                                         'String','',...
-                                         'TooltipString',tooltip{ii,jj});
-    end
     
-    h.prm.custom.label(ii,2) = uicontrol('Style','text',...
-                                        'Position',[20 y(ii)-25 80 20],...
-                                        'FontSize',8,...
-                                        'HorizontalAlignment','left',...
-                                        'String',labels{ii,2},...
-                                        'TooltipString',tooltip{ii,2});
-  end
-  
-  h.prm.custom.selectfile = uicontrol('Style', 'pushbutton',...
-                                     'String', 'Select file',...
-                                     'FontSize',8,...
-                                     'Position', [190 lines(35) 80 20],...
-                                     'Callback', {@selectFile,h.prm.custom.prm(4)});
-  
-  h.prm.custom.reset.prm = uicontrol('Style', 'pushbutton',...
-                                    'String', 'Reset',...
-                                    'FontSize',8,...
-                                    'Position', [20 lines(40) 50 20],...
-                                    'Callback', {@resetPrm,h.prm.custom.prm,'custom','prm'},...
-                                    'TooltipString','Reset to default values (empty)');
-  
-  set(h.prm.custom.header,'Visible','Off');
-  set(h.prm.custom.label,'Visible','Off');
-  set(h.prm.custom.reset.prm,'Visible','Off');
-  set(h.prm.custom.selectfile,'Visible','Off');
-  set(h.prm.custom.prm,'Visible','Off');
-  
-  % Checkboxes for combining perturbations
-  
-  h.prm.combine.label(ii,1) = uicontrol('Style','text',...
-                                       'Position',[20 lines(43) 250 20],...
-                                       'FontSize',10,...
-                                       'HorizontalAlignment','left',...
-                                       'String','Combine perturbations:',...
-                                       'TooltipString','Currently active perturbation always shown.');
-  % These HAVE TO BE IN THE SAME ORDER as in the pull-down menu.
-  % Don't fuck this up.
-  labels = {'sine','noise','bump','custom'};
-  y = lines([45 47 49 51]);
+  labels = {'Function','Args'};
+  tooltip = {'Anonymous function','Input arguments for the function'};
   for ii = 1:length(labels)
-    h.prm.combine.box(ii) = uicontrol('Style','checkbox',...
-                                     'String',labels{ii},...
-                                     'Position',[20 y(ii) 80 18],...
-                                     'Value',0,...    
-                                     'FontSize',8,...
-                                     'TooltipString','');
+    h.main.pert.custom.label(ii,2) = uicontrol('Parent',h.main.pert.custom.pn(2),...
+                                               'Style','text',...
+                                             'horizontalalignment','left',...
+                                               'Position',[x(1) lines(ii) 60 14],...
+                                               'FontSize',fontsize,...
+                                               'String',labels{ii},...
+                                               'TooltipString',tooltip{ii});
   end
+  
+  for ii = 1:2
+    h.main.pert.custom.par(ii,2) = uicontrol('Parent',h.main.pert.custom.pn(2),...
+                                             'Style', 'edit',...
+                                             'horizontalalignment','left',...
+                                             'Position', [x(2) lines(ii) 130 20],...
+                                             'TooltipString',tooltip{ii});
+  end  
+  
+  labels = {'Matrix','Amplitude'};
+  tooltip = {'Variable name','Max amplitude'};
+  for ii = 1:length(labels)
+    h.main.pert.custom.label(ii,3) = uicontrol('Parent',h.main.pert.custom.pn(3),...
+                                               'Style','text',...
+                                               'horizontalalignment','left',...
+                                               'Position',[x(1) lines(ii) 60 14],...
+                                               'FontSize',fontsize,...
+                                               'String',labels{ii},...
+                                               'TooltipString',tooltip{ii});
+  end
+  
+  wdt = [130 60];
+  for ii = 1:2
+    h.main.pert.custom.par(ii,3) = uicontrol('Parent',h.main.pert.custom.pn(3),...
+                                             'Style', 'edit',...
+                                             'horizontalalignment','left',...
+                                             'Position', [x(2) lines(ii) wdt(ii) 20],...
+                                             'TooltipString',tooltip{ii});
+  end  
+    
+  labels = {'File','Amplitude'};
+  tooltip = {'Image file name','Max amplitude'};
+  for ii = 1:length(labels)
+    h.main.pert.custom.label(ii,4) = uicontrol('Parent',h.main.pert.custom.pn(4),...
+                                               'Style','text',...
+                                               'horizontalalignment','left',...
+                                               'Position',[x(1) lines(ii) 60 14],...
+                                               'FontSize',fontsize,...
+                                               'String',labels{ii},...
+                                               'TooltipString',tooltip{ii});
+  end
+  
+  wdt = [80 60];
+  for ii = 1:2
+    h.main.pert.custom.par(ii,4) = uicontrol('Parent',h.main.pert.custom.pn(4),...
+                                             'Style', 'edit',...
+                                             'horizontalalignment','left',...
+                                             'Position', [x(2) lines(ii) wdt(ii) 20],...
+                                             'TooltipString',tooltip{ii});
+  end  
+  
+  h.main.pert.custom.selectfile(2) = uicontrol('Parent',h.main.pert.custom.pn(4),...
+                                            'Style', 'pushbutton',...
+                                            'String', 'Browse',...
+                                            'FontSize',8,...
+                                            'Position', [x(3) lines(1) 60 20],...
+                                            'Callback', {@select_figfile_CB,h.main.pert.custom.par(1,4)});  
+    
+  set(h.main.pert.custom.pn,'Visible','Off');
+  
+  % Update prm
+  h.main.pert.update = uicontrol('Parent',h.main.pert.pn,...
+                                 'Style', 'pushbutton',...
+                                 'String', 'Update',...
+                                 'FontSize',fontsize,...
+                                 'Position', [10 10 60 20],...
+                                 'TooltipString','Update perturbations');  
+
+
+  % Reset prm
+  h.main.pert.reset = uicontrol('Parent',h.main.pert.pn,...
+                                 'Style', 'pushbutton',...
+                                 'String', 'Reset',...
+                                 'FontSize',fontsize,...
+                                 'Position', [80 10 60 20],...
+                                 'TooltipString','Reset perturbation parameters');
+  
+  
+  % Add to list (to be implemented)
+  h.main.pert.addtolist = uicontrol('Parent',h.main.pert.pn,...
+                                    'Style', 'pushbutton',...
+                                    'String', 'Add new',...
+                                    'FontSize',fontsize,...
+                                    'Position', [150 10 65 20],...
+                                    'TooltipString','Add a new perturbation');
+  
+
   
   %------------------------------------------------------------
+  % Text box for showing the command to produce the model
+
+  % h.main.cmd.cmd = uicontrol('Parent',h.main.cmd.pn,...
+  %                            'Style', 'edit',...
+  %                            'Position', [10 10 480 20],...
+  %                            'HorizontalAlignment','left',...
+  %                            'FontSize',fontsize,...
+  %                            'String','');
+
+  %------------------------------------------------------------
+  % Perturbation list window
+  h.list.f = figure('Color','white',...
+                    'Units','pixels',...
+                    'NumberTitle','Off',...
+                    'Name','Perturbations',...
+                    'Visible','Off',...
+                    'menubar','none','toolbar','none');  
+  
+  
+  pos = get(h.list.f,'Position');
+  pos(3:4) = listfigsize;
+  set(h.list.f,'Position',pos);  
+  
+  panelheight = listfigsize(2)-20;
+  panelwidth = listfigsize(1)-20;
+  h.list.pn = uipanel(h.list.f,'Title','Perturbations','FontSize',10,...
+                      'BackgroundColor','white',...
+                      'Units','pixels',...
+                      'Position',[10 listfigsize(2)-panelheight panelwidth panelheight]);  
+  
+  lines = panelheight - (75:20:235);
+  x = [10 120];
+  for ii = 1:length(lines)
+
+    h.list.pert.select(ii) = uicontrol('Parent',h.list.pn,...
+                                       'Style', 'checkbox',...
+                                       'Value',0,...
+                                       'Position',[x(1) lines(ii) 100 20],...
+                                       'HorizontalAlignment','left',...
+                                       'enable', 'off',...
+                                       'tag',num2str(ii),...
+                                       'String','',...
+                                       'FontSize',fontsize,...
+                                       'TooltipString','Select to edit');
+
+    h.list.pert.use(ii) = uicontrol('Parent',h.list.pn,...
+                                    'Style', 'checkbox',...
+                                    'Value',0,...
+                                    'Position',[x(2) lines(ii) 20 20],...
+                                    'HorizontalAlignment','left',...
+                                    'enable', 'off',...
+                                    'tag',num2str(ii),...
+                                    'String','',...
+                                    'FontSize',fontsize,...
+                                    'TooltipString','Use this perturbation');
+  end
+  
+  set(h.list.pert.select(1),'value',1,'enable','on');
+  set(h.list.pert.use(1),'value',1,'enable','on');
+  model.perturbation.current = 1;
+  
+  % Update prm
+  h.list.pert.delete = uicontrol('Parent',h.list.pn,...
+                                 'Style', 'pushbutton',...
+                                 'String', 'Delete',...
+                                 'FontSize',fontsize,...
+                                 'Position', [10 10 60 20],...
+                                 'TooltipString','Delete selected');    
+  
+
+  %------------------------------------------------------------
+  % Revolution / extrusion profile window
+
+  h.curve.f = figure('Color','white',...
+                    'Units','pixels',...
+                    'NumberTitle','Off',...
+                    'Name','Curves',...
+                    'Visible','Off',...
+                    'menubar','none','toolbar','none');      
+  
+  pos = get(h.curve.f,'Position');
+  pos(3:4) = curvefigsize;
+  set(h.curve.f,'Position',pos);  
+  
+  panelheight(1) = 2/3*curvefigsize(2)-15;
+  panelheight(2) = 1/3*curvefigsize(2)-15;
+  panelwidth = curvefigsize(1)-20;
+  h.curve.pn(1) = uipanel(h.curve.f,'Title','Revolution','FontSize',10,...
+                      'BackgroundColor','white',...
+                      'Units','pixels',...
+                      'Position',[10 curvefigsize(2)-panelheight(1)-15 panelwidth panelheight(1)]);  
+  h.curve.pn(2) = uipanel(h.curve.f,'Title','Extrusion','FontSize',10,...
+                      'BackgroundColor','white',...
+                      'Units','pixels',...
+                      'Position',[10 10 panelwidth panelheight(2)]);  
+  
+  h.curve.ax(1) = axes('Parent',h.curve.pn(1),'Units','pixels','Position',[30 30 130 280]);
+  h.curve.ax(2) = axes('Parent',h.curve.pn(2),'Units','pixels','Position',[30 30 130 130]);
+    
+  h.curve.reset(1) = uicontrol('Parent',h.curve.pn(1),...
+                               'Style', 'pushbutton',...
+                               'String', 'Reset',...
+                               'FontSize',fontsize,...
+                               'Position', [170 30 60 20],...
+                               'TooltipString','Reset to default curve');   
+ 
+  h.curve.reset(2) = uicontrol('Parent',h.curve.pn(2),...
+                               'Style', 'pushbutton',...
+                               'String', 'Reset',...
+                               'FontSize',fontsize,...
+                               'Position', [170 30 60 20],...
+                               'TooltipString','Reset to default curve');   
+ 
+  
   %------------------------------------------------------------
   % Profiles for revolution and extrusion
 
-  % figure(h.curve.f);
   pause(1)
   set(0,'CurrentFigure',h.curve.f);
   
-  npoints = [nmeshpoints nmeshpoints];
+  % Start with the default resolution for a revolution
+  npoints = default.shape.revolution.npoints;
   
   xscale = 2;
   yscale = pi;
-  connect = false;
-  interp = 'spline';
 
+  connect = default.shape.revolution.curve(1).connect;
+  interp = default.shape.revolution.curve(1).interp;
+  
   %------------------------------------------------------------
   % Set up things for the revolution curve
-  %axes(h.curve.ax(1));
   set(h.curve.f,'CurrentAxes',h.curve.ax(1));
   xlim = [-xscale xscale];
   ylim = [-yscale yscale];
   axis equal
   set(h.curve.ax(1),'XLim',xlim,'YLim',ylim,'Box','On');
-  %title('Revolution profile','FontWeight','normal','Fontsize',10);  
-  set(get(gca,'Title'),'String','Revolution profile','FontWeight','normal','Fontsize',10);
   hold on
 
-  y = ylim;
-  x = xscale/2*[1 1];
+  % y = ylim;
+  % x = xscale/2*[1 1];
   
-  y1 = linspace(-yscale,yscale,npoints(1));
-  x1 = interp1(y,x,y1,'spline');
+  x = default.shape.revolution.curve(1).xdata;
+  y = default.shape.revolution.curve(1).ydata;
+  x1 = default.shape.revolution.curve(1).xsmooth;
+  y1 = default.shape.revolution.curve(1).ysmooth;  
+  
 
-  hsmooth_orig(1,1) = plot(x1,y1,'Visible','Off');
-  hdat_orig(1,1) = plot(x,y,'Visible','Off');
-  hsmooth_orig(1,2) = plot(-x1,y1,'Visible','Off');
-  hdat_orig(1,2) = plot(-x,y,'Visible','Off');
+  h.curve.smooth_orig(1,1) = plot(x1,y1,'Visible','Off');
+  h.curve.dat_orig(1,1) = plot(x,y,'Visible','Off');
+  h.curve.smooth_orig(1,2) = plot(-x1,y1,'Visible','Off');
+  h.curve.dat_orig(1,2) = plot(-x,y,'Visible','Off');
   
-  hsmooth(1,1) = plot(x1,y1,'r-');
-  hdat(1,1) = plot(x,y,'ob','MarkerFaceColor','b');
-  hsmooth(1,2) = plot(-x1,y1,'-','Color',[1 .8 .8]);
-  hdat(1,2) = plot(-x,y,'o','MarkerFaceColor',[.8 .8 1],'MarkerEdgeColor',[.8 .8 1]);
+  h.curve.smooth(1,1) = plot(x1,y1,'-','color',.5*[1 1 1]);
+  h.curve.dat(1,1) = plot(x,y,'o','MarkerEdgeColor',.1*[1 1 1],'MarkerFaceColor',.1*[1 1 1]);
+  h.curve.smooth(1,2) = plot(-x1,y1,'-','Color',.75*[1 1 1]);
+  h.curve.dat(1,2) = plot(-x,y,'o','MarkerFaceColor',.5*[1 1 1],'MarkerEdgeColor',.5*[1 1 1]);
   drawnow
-  
-  % End setting up for revolution  profile 
+    
   %------------------------------------------------------------
-  % Set up things for the revolution curve
+  % Set up things for the extrusion curve
   
-  set(0,'CurrentFigure',h.curve.f);
-  
-  % axes(h.curve.ax(2));
   set(h.curve.f,'CurrentAxes',h.curve.ax(2));
   
-  xlim = [-xscale xscale];
-  ylim = [-xscale xscale];
-  th = [0 pi/2 pi 3*pi/2];
-  r = [1 1 1 1];
-  [x,y] = pol2cart(th,r);
-  %hsmooth = [];
   
-  %set(get(gca,'Title'),'String','Extrusion profile','FontWeight','normal','Fontsize',10);
-
+  % polarplot exists only in Matlab 2016a and later; use code that works
+  % in older versions.  Note that unlike Octave, Matlab's polar
+  % doesn't support RLim.  You have to hack the axis limit by plotting
+  % an invisible point at the wanted distance.
   
-  if false % isoctave
-    % hdat = polar(y,x,'ob');
-    % ah = gca;
-    % set(hdat,'MarkerFaceColor','b');
-    % set(ahCurve,'XLim',xlim,'YLim',ylim);
-    % set(ahCurve,'RTick',xscale);
-    % axis equal
-    % hold on    
-    
-  else
-    % polarplot exists only in Matlab 2016a and later Put here code that
-    % works in older versions.  This is similar to Octave code, but
-    % Matlab's polar doesn't support RLim, for instance.  You have to
-    % hack the axis limit by plotting an invisible point at the wanted
-    % distance.
-    
-    plot(0,0,'ok','MarkerFaceColor','k');
-    hold on    
+  plot(0,0,'ok','MarkerFaceColor','k');
+  hold on    
 
-    
-    %set(hdat,'MarkerFaceColor','b');
-    set(h.curve.ax(2),'XLim',xlim,'YLim',ylim);
-    %set(ah,'RTick',xscale);
-    % axis equal
+  set(h.curve.ax(2),'XLim',xlim,'YLim',xlim);
 
-    % Add one point to y1 to make it wrap around.  In
-    % objMake*-functions the faces do the wrapping, so remember
-    % to drop the final point here before returning.
-    th = atan2(y,x);
-    th(th<0) = th(th<0) + 2*pi;
-    r = sqrt(x.^2+y.^2);
-    th1 = linspace(0,2*pi,npoints(2)+1);
-    % r1 = interp1([th 2*pi],[r r(1)],th1,'spline');
-    r1 = interp1([th 2*pi],1./([r r(1)]).^2,th1,'spline');
-    r1 = 1 ./ r1.^.5;
-    [x1,y1] = pol2cart(th1,r1);
-    
 
-    
-    hsmooth_orig(2,1) = plot(x1,y1,'Visible','Off');
-    hdat_orig(2,1) = plot(x,y,'Visible','Off');
-    hsmooth(2,1) = plot(x1,y1,'r-');
-    hdat(2,1) = plot(x,y,'ob','MarkerFaceColor','b');
-    
-    axis equal
-    
-    drawnow
-        
-  end
-  %title('Extrusion profile','FontWeight','normal','Fontsize',10);  
-  set(get(h.curve.ax(2),'Title'),'String','Extrusion profile','FontWeight','normal','Fontsize',10);
-
-  % End setting up for extrusion / polar profile
-  %------------------------------------------------------------
-  % Set app data for the profiles
+  x = default.shape.revolution.curve(2).xdata;
+  y = default.shape.revolution.curve(2).ydata;
+  x1 = default.shape.revolution.curve(2).xsmooth;
+  y1 = default.shape.revolution.curve(2).ysmooth;  
   
-  %setappdata(h.curve.f,'profiletype',profiletype);
-  setappdata(h.curve.f,'h_orig',hdat_orig);
-  setappdata(h.curve.f,'hsmooth_orig',hsmooth_orig);
-
-  setappdata(h.curve.f,'h',hdat);
-  setappdata(h.curve.f,'hsmooth',hsmooth);
+  h.curve.smooth_orig(2,1) = plot(x1,y1,'Visible','Off');
+  h.curve.dat_orig(2,1) = plot(x,y,'Visible','Off');
+  h.curve.smooth(2,1) = plot(x1,y1,'-','color',.5*[1 1 1]);
+  h.curve.dat(2,1) = plot(x,y,'o','MarkerEdgeColor',.1*[1 1 1],'MarkerFaceColor',.1*[1 1 1]);
+  
+  axis equal
+  
+  drawnow  
+  
+  % Latest points
+  set(h.curve.f,'CurrentAxes',h.curve.ax(1));
+  h.curve.late(1) = plot(-100,-100,'o');
+  set(h.curve.f,'CurrentAxes',h.curve.ax(2));
+  h.curve.late(2) = plot(-100,-100,'o');
+  set(h.curve.late,'MarkerEdgeColor',.1*[1 1 1],'MarkerFaceColor',.1*[1 1 1]);
+  
+  % Point being moved in a lighter color
+  set(h.curve.f,'CurrentAxes',h.curve.ax(1));
+  h.curve.move(1) = plot(-100,-100,'o','MarkerSize',8,...
+                  'MarkerEdgeColor',.75*[1 1 1],...
+                  'MarkerFaceColor',.75*[1 1 1]);
+  
+  set(h.curve.f,'CurrentAxes',h.curve.ax(2));
+  h.curve.move(2) = plot(-100,-100,'o','MarkerSize',8,...
+                  'MarkerEdgeColor',.75*[1 1 1],...
+                  'MarkerFaceColor',.75*[1 1 1]);
+  
   
   setappdata(h.curve.ax(1),'profiletype','linear');
   setappdata(h.curve.ax(2),'profiletype','polar');
-
-  set(h.curve.f,'CurrentAxes',h.curve.ax(1));
-  hlate(1) = plot(-100,-100,'ob','MarkerFaceColor','b');
-  set(h.curve.f,'CurrentAxes',h.curve.ax(2));
-  hlate(2) = plot(-100,-100,'ob','MarkerFaceColor','b');
-  setappdata(h.curve.f,'hlatest',hlate);
-
-  set(h.curve.f,'CurrentAxes',h.curve.ax(1));
-  hmove(1) = plot(-100,-100,'o','MarkerSize',8,...
-                  'MarkerEdgeColor',[.7 .7 .7],...
-                  'MarkerFaceColor',[.7 .7 .7]);
-  set(h.curve.f,'CurrentAxes',h.curve.ax(2));
-  hmove(2) = plot(-100,-100,'o','MarkerSize',8,...
-                  'MarkerEdgeColor',[.7 .7 .7],...
-                  'MarkerFaceColor',[.7 .7 .7]);
-  setappdata(h.curve.f,'hmovepoint',hmove);
-
+  
   setappdata(h.curve.f,'npoints',npoints);
   setappdata(h.curve.f,'connect',connect);
   setappdata(h.curve.f,'interp',interp);
-  setappdata(h.curve.f,'rdata',r1);
-  setappdata(h.curve.f,'rdata_orig',r1);
+  %setappdata(h.curve.f,'rdata',r1);
+  %setappdata(h.curve.f,'rdata_orig',r1);
   setappdata(h.curve.f,'usercurve',true);
-  setappdata(h.curve.f,'useecurve',true);
-
-  set(h.curve.f,'windowbuttondownfcn',@starttrackmouse);
-  set(h.curve.f,'keypressfcn',@keyfunc);
-
-  %------------------------------------------------------------
-  %------------------------------------------------------------
-  % Profiles for spines
-
-  % figure(h.spine.f);
-  set(0,'CurrentFigure',h.spine.f);
+  setappdata(h.curve.f,'useecurve',true);  
   
-  npoints = [nmeshpoints nmeshpoints];
-  
-  xscale = 2;
-  yscale = nmeshpoints;
-  interp = 'spline';
-
   %------------------------------------------------------------
-  % Set up things for the spine spine
+  % Menus
   
-  titles = {'Along x-axis','Along z-axis','y'};
-  for ii = 1:2
-    set(h.spine.f,'CurrentAxes',h.spine.ax(ii));
-    xlim = [-xscale xscale];
-    ylim = [1 yscale];
-    %axis equal
-    set(h.spine.ax(ii),'XLim',xlim,'YLim',ylim,'Box','On');
-    set(get(gca,'Title'),'String',titles{ii},'FontWeight','normal','Fontsize',10);
-    hold on
+  set(h.main.f,'menubar','none','toolbar','none');
+  h.menu.file.main    = uimenu(h.main.f,'Label','&File');
+  h.menu.file.new     = uimenu(h.menu.file.main,'Label','&New','Accelerator','N');
+  h.menu.file.open    = uimenu(h.menu.file.main,'Label','&Open','Accelerator','O');
+  h.menu.file.save    = uimenu(h.menu.file.main,'Label','&Save','Accelerator','S');
+  h.menu.file.saveas  = uimenu(h.menu.file.main,'Label','Save &As');
+  h.menu.file.quit  = uimenu(h.menu.file.main,'Label','&Quit','Accelerator','Q');
+
+  h.menu.win.main     = uimenu(h.main.f,'Label','&Window');
+  h.menu.win.list     = uimenu(h.menu.win.main,'Label','&List','Checked','off');
+  h.menu.win.curve     = uimenu(h.menu.win.main,'Label','&Curves','Checked','off');
     
-    y = ylim;
-    x = [0 0];
+  %------------------------------------------------------------
+  % Callbacks
+  set(h.main.shape.shape,'Callback', {@updatemodel_CB,h});
+  
+  % set(h.main.shape.reso.npoints(1),'KeyReleaseFcn', {@updatemodelreso_CB,h,1});
+  % set(h.main.shape.reso.npoints(2),'KeyReleaseFcn', {@updatemodelreso_CB,h,2});
+  set(h.main.shape.reso.npoints(1),'Callback', {@updatemodelreso_CB,h,1});
+  set(h.main.shape.reso.npoints(2),'Callback', {@updatemodelreso_CB,h,2});
+  
+  set(h.main.shape.height,'Callback', {@updatemodelheight_CB,h});
+  set(h.main.shape.width,'Callback', {@updatemodelwidth_CB,h});
+  set(h.main.shape.radius,'Callback', {@updatemodelradius_CB,h});
+  set(h.main.shape.minor_radius,'Callback', {@updatemodelminorradius_CB,h});
+  set(h.main.shape.super,'Callback', {@updatemodelsuper_CB,h});
+  set(h.main.shape.rpar,'Callback', {@updatemodelrpar_CB,h});
+  set(h.main.shape.caps,'Callback', {@updatemodelcaps_CB,h});
+  set(h.main.shape.reset,'Callback', {@resetmodelprm_CB,h});
+  
+  set(h.main.prev.showax,'Callback',{@toggleaxes_CB,h});  
+  set(h.main.export.var,'Callback',{@exportmodel_CB,h});
+  set(h.main.export.btn,'Callback',{@exportmodel_CB,h});
+  set(h.main.save.model.filename,'Callback',{@savemodel_CB,h});
+  set(h.main.save.model.btn,'Callback',{@savemodel_CB,h});
+  set(h.main.prev.reset.btn,'Callback',{@resetview_CB,h});
+
+  set(h.main.pert.pert,'Callback', {@updatepert_CB,h});
+  % set(h.main.pert.sine.reset.cpar,'Callback', {@resetpertprm_CB,h,'cpar'});
+  % set(h.main.pert.sine.reset.mpar,'Callback', {@resetpertprm_CB,h,'mpar'});
+  % set(h.main.pert.noise.reset.npar,'Callback', {@resetpertprm_CB,h,'npar'});
+  % set(h.main.pert.noise.reset.mpar,'Callback', {@resetpertprm_CB,h,'mpar'});
+  set(h.main.pert.update,'Callback', {@updatepertprm_CB,h});
+  set(h.main.pert.reset,'Callback', {@resetpertprm_CB,h,[]});
+  set(h.main.pert.addtolist,'Callback', {@addtolist_CB,h});
+
+  set(h.list.pert.select,'Callback', {@selectpert_CB,h});
+  set(h.list.pert.delete,'Callback', {@deletepert_CB,h});
+  
+  set(h.curve.reset(1),'CallBack',{@resetcurve_CB,h,1});
+  set(h.curve.reset(2),'CallBack',{@resetcurve_CB,h,2});
+  
+  set(h.curve.f,'windowbuttondownfcn',{@starttrackmouse_CB,h});
+  set(h.curve.f,'keypressfcn',{@keyfunc_CB,h});
     
-    y1 = linspace(1,yscale,npoints(1));
-    x1 = interp1(y,x,y1,'spline');
-    
-    hsmooth_orig(ii) = plot(x1,y1,'Visible','Off');
-    hdat_orig(ii) = plot(x,y,'Visible','Off');
-    
-    hsmooth(ii) = plot(x1,y1,'r-');
-    hdat(ii) = plot(x,y,'ob','MarkerFaceColor','b');
-    drawnow
+  
+  %------------------------------------------------------------
+  % Normalized units for automatic resize
+  
+  setnormalized(h);
+  
+  %------------------------------------------------------------
+  % Create and show the initial model
+  setappdata(h.main.f,'model',model);
+  setappdata(h.main.f,'default',default);
+
+  setappdata(h.main.f,'fontsize',fontsize);
+  setappdata(h.main.f,'margin',margin);
+  setappdata(h.main.f,'col',col);
+  
+  p = default.perturbation.types;
+  for ii = 1:length(p)
+    resetpertprm(h,p{ii});  
   end
   
-  ii = 3;
+  updatelist(h);
+  updatemodel(h);
+  resetview(h);
+
+  %------------------------------------------------------------
+  % Menu callbacks
+
+  set(h.menu.file.new,'CallBack',{@newproject_CB,h});
+  set(h.menu.file.open,'CallBack',{@openproject_CB,h});
+  set(h.menu.file.save,'CallBack',{@saveproject_CB,h});
+  set(h.menu.file.saveas,'CallBack',{@saveprojectas_CB,h});
+  set(h.menu.file.quit,'CallBack',{@closeapp_CB,h,'main'});
+
+  set(h.menu.win.list,'CallBack',{@togglewin_CB,h,'list'});
+  set(h.menu.win.curve,'CallBack',{@togglewin_CB,h,'curve'});
   
-  set(h.spine.f,'CurrentAxes',h.spine.ax(ii));
-  xlim = [1 nmeshpoints];
-  ylim = [-pi pi];
-  %axis equal
-  set(h.spine.ax(ii),'XLim',xlim,'YLim',ylim,'Box','On');
-  set(get(gca,'Title'),'String',titles{ii},'FontWeight','normal','Fontsize',10);
-  hold on
-  
-  y = ylim;
-  x = xlim;
-  
-  x1 = linspace(1,nmeshpoints,npoints(1));
-  y1 = interp1(x,y,x1,'spline');
-  
-  hsmooth_orig(ii) = plot(x1,y1,'Visible','Off');
-  hdat_orig(ii) = plot(x,y,'Visible','Off');
-  
-  hsmooth(ii) = plot(x1,y1,'r-');
-  hdat(ii) = plot(x,y,'ob','MarkerFaceColor','b');
-  drawnow  
+  % Close request callabcks have to be registered after the menu
+  % items are created above.
+  set(h.main.f,'CloseRequestFcn',{@closeapp_CB,h,'main'});
+  set(h.list.f,'CloseRequestFcn',{@closeapp_CB,h,'list'});
+  set(h.curve.f,'CloseRequestFcn',{@closeapp_CB,h,'curve'});
   
   %------------------------------------------------------------
-  % Set app data for spine profiles
+  % Show the main window
   
-  setappdata(h.spine.f,'hdat_orig',hdat_orig);
-  setappdata(h.spine.f,'hsmooth_orig',hsmooth_orig);
-
-  setappdata(h.spine.f,'hdat',hdat);
-  setappdata(h.spine.f,'hsmooth',hsmooth);
-
-  spinetype = {'x','z','y'};
-  for ii = 1:length(h.spine.ax)
-    
-    setappdata(h.spine.ax(ii),'spinetype',spinetype{ii});
-    
-    set(h.spine.f,'CurrentAxes',h.spine.ax(ii));
-    hlate(ii) = plot(-100,-100,'ob','MarkerFaceColor','b');
-    setappdata(h.spine.f,'hlatest',hlate);
-
-    hmove(ii) = plot(-100,-100,'o','MarkerSize',8,...
-                    'MarkerEdgeColor',[.7 .7 .7],...
-                    'MarkerFaceColor',[.7 .7 .7]);
-    setappdata(h.spine.f,'hmovepoint',hmove);
+  % Start at center
+  if ~isoctave
+    movegui(h.main.f,'center')
   end
-  clear hlate hmove
-    
-  setappdata(h.spine.f,'npoints',npoints);
-  setappdata(h.spine.f,'interp',interp);
-  setappdata(h.spine.f,'usespine',[false false false]);
 
-  set(h.spine.f,'windowbuttondownfcn',@spinestarttrackmouse);
-  set(h.spine.f,'keypressfcn',@spinekeyfunc);
-  
-  %------------------------------------------------------------
-  % Set up other controls for profiles
-  
-  % figure(h.curve.f);
-  set(0,'CurrentFigure',h.curve.f);
-  
-  
-  y = [630 210
-       600 180
-       570 150
-       545 125];
-  
-  str1 = {'rcurve','ecurve'};
-  str2 = {'linear','polar'};
-  for ii = 1:2
-  
-  
-    h.curve.use(ii) = uicontrol('Style', 'checkbox',...
-                               'Position', [250 y(1,ii) 100 20],...
-                               'String','Use profile',...
-                               'FontSize',8,...
-                               'Value', 0,...
-                               'Tag',num2str(ii),...
-                               'Enable','Off',...
-                               'TooltipString','Uncheck to ignore profile curve',...
-                               'Callback', {@toggleCurve,h.prm,h.preview,h.curve,h.spine});
-    
-    h.curve.reset(ii) = uicontrol('Style', 'pushbutton',...
-                                 'Position', [250 y(2,ii) 60 20],...
-                                 'Tag',num2str(ii),...
-                                 'FontSize',8,...
-                                 'String','Reset',...
-                                 'TooltipString','Reset the curve to default',...
-                                 'Callback', {@resetCurve,h.prm,h.preview,h.curve,h.spine});
-  
-    h.curve.export.box(ii) = uicontrol('Style','edit',...
-                                      'Position',[250 y(3,ii) 130 20],...
-                                      'HorizontalAlignment','left',...
-                                      'String',str1{ii},...
-                                      'TooltipString','Give a variable name for the curve',...
-                                      'Callback', {@exportCurveToWorkSpace,h.curve.f,[],str2{ii}},...
-                                      'FontSize',fontsize);
-  
-    h.curve.export.lab(ii) = uicontrol('Style', 'pushbutton',...
-                                       'String', 'Export to workspace',...
-                                       'TooltipString','Export the curve',...
-                                       'Position', [250 y(4,ii) 130 20],...
-                                       'Callback', {@exportCurveToWorkSpace,h.curve.f,h.curve.export.box(ii),str2{ii}},...
-                                       'FontSize',fontsize);    
-  end
-  
-  %------------------------------------------------------------
-  % Other controls for spine curves
-  
-  % figure(h.spine.f);
-  set(0,'CurrentFigure',h.spine.f);
-  
-  x = [30 330 630];
-  str = {'spinex','spinez','spiney'};
-  for ii = 1:3
+  % Show it
+  set(h.main.f,'Visible','On');
+  % set(h.list.f,'Visible','On');
 
+  % keyboard
 
-    h.spine.use(ii) = uicontrol('Style', 'checkbox',...
-                                'Position', [x(ii) 80 60 20],...
-                                'String','Use curve',...
-                                'Value',0,...
-                                'Tag',num2str(ii),...
-                                'FontSize',8,...
-                                'Enable','On',...
-                                'TooltipString','Uncheck to ignore the curve in model',...
-                                'Callback', {@toggleSpineCurve,h.prm,h.preview,h.curve,h.spine});
-    
-    h.spine.reset(ii) = uicontrol('Style', 'pushbutton',...
-                                  'Position', [x(ii)+150 80 60 20],...
-                                  'Tag',num2str(ii),...
-                                  'FontSize',8,...
-                                  'String','Reset',...
-                                  'TooltipString','Reset the curve to default',...
-                                  'Callback', {@resetSpineCurve,h.prm,h.preview,h.curve,h.spine});
-    
-    
-    h.spine.export.box(ii) = uicontrol('Style','edit',...
-                                       'Position',[x(ii) 55 130 20],...
-                                       'HorizontalAlignment','left',...
-                                       'String',str{ii},...
-                                       'TooltipString','Give a variable name for the curve',...
-                                       'Callback', {@exportSpineCurveToWorkSpace,h.spine.f,[],str{ii}},...
-                                       'FontSize',fontsize);
-    
-    h.spine.export.btn(ii) = uicontrol('Style', 'pushbutton',...
-                                       'String', 'Export to workspace',...
-                                       'TooltipString','Export the curve',...
-                                       'Position', [x(ii) 33 130 20],...
-                                       'Callback', {@exportSpineCurveToWorkSpace,h.spine.f,h.spine.export.box(ii),str{ii}},...
-                                       'FontSize',fontsize);    
-
-    
-  end
-  
-  %------------------------------------------------------------
-  %------------------------------------------------------------
-  % Main controls for parameter window (perturbation parameter
-  % input set up further above).
-  
-  % figure(h.prm.f);
-  set(0,'CurrentFigure',h.prm.f);
-  
-  setappdata(h.prm.f,'shape','sphere');
-  setappdata(h.prm.f,'perturbation','none');
-  setappdata(h.prm.f,'npoints',nmeshpoints);
-  
-
-  % window show/hide checkboxes
-  
-  windows = {'Preview','Curves','Spine'};
-  tags = {'preview','curve','spine'};
-  values = [1 0 0];
-  y = [650 625 600];
-  for ii = 1:3
-    h.prm.showwin(ii) = uicontrol('Style', 'checkbox',...
-                                  'Position', [20 y(ii) 115 20],...
-                                  'String',sprintf('Show %s',windows{ii}),...
-                                  'FontSize',fontsize,...
-                                  'Tag',tags{ii},...
-                                  'Enable','On',...
-                                  'Value', values(ii),...
-                                  'Callback', {@toggleWindow,h});    
-  end
-  
-  uicontrol('Style','text',...
-            'Position',[120 lines(1) 100 20],...
-            'HorizontalAlignment','left',...
-            'String','Perturbation');  
-
-  uicontrol('Style','text',...
-            'Position',[20 lines(1) 100 20],...
-            'HorizontalAlignment','left',...
-            'String','Shape');  
-  
-  hPerturbation = uicontrol('Style', 'popupmenu',...
-                            'String', {'none','sine','noise','bump','custom'},...
-                            'Position', [120 lines(3) 100 20],...
-                            'Callback', {@updatePerturbation,h.prm,h.preview,h.curve,h.spine});
-  
-  hShape = uicontrol('Style', 'popupmenu',...
-                     'String', {'sphere','plane','cylinder','torus','disk','revolution','extrusion','worm'},...
-                     'Position', [20 lines(3) 100 20],...
-                     'Callback', {@updateShape,h.prm,h.preview,h.curve,h.spine});
-  
-  hUpdate = uicontrol('Style', 'pushbutton',...
-                      'String', 'Update',...
-                      'FontSize',8,...
-                      'Position', [20 lines(end) 50 20],...
-                      'Callback', {@updatePrm,h.prm,h.preview,h.curve,h.spine});
-
-  set(h.preview.f,'CloseRequestFcn',{@closeapp,h,'preview'});
-  set(h.curve.f,'CloseRequestFcn',{@closeapp,h,'curve'});
-  set(h.spine.f,'CloseRequestFcn',{@closeapp,h,'spine'});  
-  set(h.prm.f,'CloseRequestFcn',{@closeapp,h,'main'});
-  
-  %------------------------------------------------------------
-  %------------------------------------------------------------
-  % Controls for the preview window
-  
-  % figure(h.preview.f);
-  set(0,'CurrentFigure',h.preview.f);
-  
-  hToggleAxes = uicontrol('Style', 'checkbox',...
-                          'Position', [20 70 115 20],...
-                          'String','Show axes',...
-                          'FontSize',fontsize,...
-                          'Value', 0,...
-                          'Callback', {@toggleAxes,h.preview.ax});  
-  
-  
-  bhResetView = uicontrol('Style', 'pushbutton',...
-                          'String', 'Reset view',...
-                          'TooltipString','Reset to default view',...
-                          'Position', [150 70 130 20],...
-                          'Callback', {@resetView,h.preview.f,h.preview.ax},...
-                          'FontSize',fontsize);    
-  
-  thExportLabel = uicontrol('Style','text',...
-                            'Position',[20 45 55 20],...
-                            'HorizontalAlignment','left',...
-                            'String','Variable',...
-                            'FontSize',fontsize);
-  
-  thExport = uicontrol('Style','edit',...
-                       'Position',[85 45 60 20],...
-                       'HorizontalAlignment','left',...
-                       'String','model',...
-                       'TooltipString','Give a variable name for the model structure',...
-                       'Callback', {@exportToWorkSpace,[],h.preview.f},...
-                       'FontSize',fontsize);
-  
-  bhExport = uicontrol('Style', 'pushbutton',...
-                       'String', 'Export to workspace',...
-                       'TooltipString','Export the model structure to Matlab workspace',...
-                       'Position', [150 45 130 20],...
-                       'Callback', {@exportToWorkSpace,thExport,h.preview.f},...
-                       'FontSize',fontsize);  
-  
-  thSaveLabel = uicontrol('Style','text',...
-                          'Position',[20 20 55 20],...
-                          'HorizontalAlignment','left',...
-                          'String','Filename',...
-                          'FontSize',fontsize);
-  
-  thSave = uicontrol('Style','edit',...
-                     'Position',[85 20 60 20],...
-                     'HorizontalAlignment','left',...
-                     'String','model',...
-                     'TooltipString','Give a file name to save to',...
-                     'Callback', {@saveModel,[],h.preview.f},...
-                     'FontSize',fontsize);
-  
-  bhSave = uicontrol('Style', 'pushbutton',...
-                     'String', 'Save .obj file',...
-                     'TooltipString','Save the model to a Wavefront obj file',...
-                     'Position', [150 20 130 20],...
-                     'Callback', {@saveModel,thSave,h.preview.f},...
-                     'FontSize',fontsize);
-
-  %------------------------------------------------------------
-  % Show all/some windows
-  
-  set(h.preview.f,'Visible','On');
-  set(h.curve.f,'Visible','Off');
-  set(h.spine.f,'Visible','Off');
-  
-  %------------------------------------------------------------
-  % Switch to the main window and update parameters, forcing the
-  % drawing of default shape.
-  
-  updatePrm([],[],h.prm,h.preview,h.curve,h.spine);
-
-  resetView([],[],h.preview.f,h.preview.ax);
-  
-  
-  figure(h.prm.f);
-    
-  % m = objMakeNoise('sphere');
-  % axes(h.preview.ax);
-  % objView(m); 
   
 end % End main program
 
@@ -910,328 +1204,1087 @@ end % End main program
 %------------------------------------------------------------
 % Functions hereafter
 
-% Callback functions sort of mainly pertaining to the main window
+% First callbacks:
 
-function updatePerturbation(src,event,hPrm,hPreview,hCurve,hSpine)
+% Menus
+
+function newproject_CB(src,event,h)
+
+  default = getappdata(h.main.f,'default');
+  % setappdata(h.main.f,'model',default);
   
-  shape = getappdata(hPrm.f,'shape');
-  
-  p = get(src,'value');
-  perturbations = get(src,'String');
-  perturbation = perturbations{p};
-  
-  set(hPrm.sine.header,'Visible','Off');
-  set(hPrm.sine.label,'Visible','Off');
-  set(hPrm.sine.reset.carr,'Visible','Off');
-  set(hPrm.sine.reset.mod,'Visible','Off');
-  set(hPrm.sine.carr,'Visible','Off');
-  set(hPrm.sine.mod,'Visible','Off');
-  
-  set(hPrm.noise.header,'Visible','Off');
-  set(hPrm.noise.label,'Visible','Off');
-  set(hPrm.noise.reset.carr,'Visible','Off');
-  set(hPrm.noise.reset.mod,'Visible','Off');
-  set(hPrm.noise.carr,'Visible','Off');
-  set(hPrm.noise.mod,'Visible','Off');  
-  
-  set(hPrm.bump.header,'Visible','Off');
-  set(hPrm.bump.label,'Visible','Off');
-  set(hPrm.bump.reset.prm,'Visible','Off');
-  set(hPrm.bump.prm,'Visible','Off');
-  
-  set(hPrm.custom.header,'Visible','Off');
-  set(hPrm.custom.label,'Visible','Off');
-  set(hPrm.custom.reset.prm,'Visible','Off');
-  set(hPrm.custom.selectfile,'Visible','Off');
-  set(hPrm.custom.prm,'Visible','Off');
-  
-  switch perturbation
-    case 'none'
-      setappdata(hPrm.f,'perturbation','none');
-    case 'sine'
-      setappdata(hPrm.f,'perturbation','sine');
-      set(hPrm.sine.header,'Visible','On');
-      set(hPrm.sine.label,'Visible','On');
-      set(hPrm.sine.reset.carr,'Visible','On');
-      set(hPrm.sine.reset.mod,'Visible','On');
-      set(hPrm.sine.carr,'Visible','On');
-      set(hPrm.sine.mod,'Visible','On');
-    case 'noise'
-      setappdata(hPrm.f,'perturbation','noise');
-      set(hPrm.noise.header,'Visible','On');
-      set(hPrm.noise.label,'Visible','On');
-      set(hPrm.noise.reset.carr,'Visible','On');
-      set(hPrm.noise.reset.mod,'Visible','On');
-      set(hPrm.noise.carr,'Visible','On');
-      set(hPrm.noise.mod,'Visible','On');   
-    case 'bump'
-      %if ~strcmp(shape,'torus')
-        setappdata(hPrm.f,'perturbation','bump');
-        set(hPrm.bump.header,'Visible','On');
-        set(hPrm.bump.label,'Visible','On');
-        set(hPrm.bump.reset.prm,'Visible','On');
-        set(hPrm.bump.prm,'Visible','On');
-      %end
-    case 'custom'
-      setappdata(hPrm.f,'perturbation','custom');
-      set(hPrm.custom.header,'Visible','On');
-      set(hPrm.custom.label,'Visible','On');
-      set(hPrm.custom.reset.prm,'Visible','On');
-      set(hPrm.custom.selectfile,'Visible','On');
-      set(hPrm.custom.prm,'Visible','On');
-  end
-  
-  updatePrm([],[],hPrm,hPreview,hCurve,hSpine);
-  
-end
-  
-function updateShape(src,event,hPrm,hPreview,hCurve,hSpine)
-  s = get(src,'value');
-  shapes = get(src,'String');
-  shape = shapes{s};
-  setappdata(hPrm.f,'shape',shape);
-  
-  switch shape
-    case 'revolution'
-      setappdata(hCurve.f,'usercurve',true);
-      set(hCurve.use(1),'Value',1);
-      set(hCurve.use(1),'Enable','Off');
-      set(hCurve.use(2),'Enable','On');
-      set(hCurve.f,'Visible','On');
-      set(hPrm.showwin(2),'Value',1);
-    case 'extrusion'
-      setappdata(hCurve.f,'useecurve',true);
-      set(hCurve.use(2),'Value',1);
-      set(hCurve.use(1),'Enable','On');
-      set(hCurve.use(2),'Enable','Off');
-      set(hCurve.f,'Visible','On');
-      set(hPrm.showwin(2),'Value',1);
-    case 'worm'
-      setappdata(hCurve.f,'usercurve',true);
-      setappdata(hCurve.f,'usercurve',true);
-      set(hCurve.use,'Value',1);
-      set(hCurve.use,'Enable','On');
-      set(hCurve.f,'Visible','On');
-      set(hSpine.f,'Visible','On');
-      set(hPrm.showwin(2),'Value',1);
-      set(hPrm.showwin(3),'Value',1);      
-    otherwise
-      setappdata(hCurve.f,'usercurve',false);
-      setappdata(hCurve.f,'usercurve',false);
-      set(hCurve.use,'Value',0);
-      set(hCurve.use,'Enable','Off');
-      
-      % setappdata(h.spine.f,'usercurve',[false false false]);
-      % set(h.spine.use,'Value',0);
-      % set(h.spine.use,'Enable','Off');
-      
+  % Copy parameter values from default fields for each shape
+  fns = fieldnames(default.shape);
+  for ii = 1:length(fns)
+    model.shape.(fns{ii}) = default.shape.(fns{ii});
   end  
-  updatePrm([],[],hPrm,hPreview,hCurve,hSpine);
+  
+  % Copy parameter values from default fields for each shape
+  fns = fieldnames(default.perturbation);
+  model.perturbation.list = [];
+  for ii = 1:length(fns)
+    model.perturbation.list(1).(fns{ii}) = default.perturbation.(fns{ii});
+  end
+  
+  % The perturbation being edited.
+  model.perturbation.current = 1;
+  model.perturbation.use = 1;
+  
+  % List of perturbations:
+  %model.list = [];
+  
+  % Field m holds the actual model
+  model.m = [];
+  
+  setappdata(h.main.f,'model',model);
+  
+  setappdata(h.main.f,'projectfilepath',[]);
+  setappdata(h.main.f,'projectfilename',[]);
+    
+  updatelist(h);  
+  updatemodel(h);
+  resetview(h);  
+
 end
 
+function saveprojectas_CB(src,event,h)
   
-function updatePrm(src,event,hPrm,hPreview,hCurve,hSpine)
-  shape = getappdata(hPrm.f,'shape');
-  thisperturbation = getappdata(hPrm.f,'perturbation');
-  npoints = getappdata(hPrm.f,'npoints');
+  model = getappdata(h.main.f,'model');
   
-  args = {};
-  switch shape
-    case 'sphere'
-      args = {'npoints',[round(npoints/2) npoints],args{:}};
-    case {'cylinder','revolution','extrusion','worm'}
-      args = {'npoints',[npoints npoints],args{:}};
-
-      usespine = getappdata(hSpine.f,'usespine');
-      if usespine(1)
-        hsmooth = getappdata(hSpine.f,'hsmooth');
-        spine = get(hsmooth(1),'xdata');
-        args = {'spinex',spine,args{:}};
-      end
-      if usespine(2)
-        hsmooth = getappdata(hSpine.f,'hsmooth');
-        spine = get(hsmooth(2),'xdata');
-        args = {'spinez',spine,args{:}};          
-      end
-      if strcmp(shape,'worm') && usespine(3)
-        if usespine(3)
-          hsmooth = getappdata(hSpine.f,'hsmooth');
-          spine = get(hsmooth(3),'ydata');
-          args = {'spiney',spine,args{:}};          
-        end
-      end
-
-      if ~strcmp(shape,'cylinder')
-        usercurve = getappdata(hCurve.f,'usercurve');
-        useecurve = getappdata(hCurve.f,'useecurve');
-        if usercurve
-          hsmooth = getappdata(hCurve.f,'hsmooth');
-          rcurve = get(hsmooth(1,1),'xdata');
-          args = {'rcurve',rcurve,args{:}};
-        end
-        if useecurve
-          ecurve = getappdata(hCurve.f,'rdata');
-          args = {'ecurve',ecurve(1:end-1),args{:}};
-        end
-      end
-    otherwise 
-      args = {'npoints',[npoints npoints],args{:}};
-  end
+  [filename,filepath] = uiputfile(...
+      {'*.mat','Matlab/Octave files (*.mat)';...
+       '*.*','All Files (*.*)'},...
+      'Save project to file');
   
-  m = objMakePlain(shape,args{:});
-  
-  perturbations = {};
-  
-  for pp = 1:length(hPrm.combine.box)
-    usepert = get(hPrm.combine.box(pp),'Value');
-    if usepert
-      perturbations = {perturbations{:},get(hPrm.combine.box(pp),'String')};
-    end
-  end
-  
-  if ~strcmp(thisperturbation,'none') && ~ismember(thisperturbation,perturbations)
-    perturbations = {perturbations{:},thisperturbation};
+  if isequal(filename,0) || isequal(filepath,0)
+    return
   end
     
-  if ~isempty(perturbations)
-    for pp = 1:length(perturbations)
-      perturbation = perturbations{pp};
-      prm = [];
-      mprm = [];
-      switch perturbation
-        case {'sine','noise'}
-          for ii = 1:size(hPrm.(perturbation).carr,1)
-            for jj = 1:size(hPrm.(perturbation).carr,2)
-              prm(ii,jj) = str2num(get(hPrm.(perturbation).carr(ii,jj),'String'));
-            end
-          end
-          for ii = 1:size(hPrm.(perturbation).mod,1)
-            for jj = 1:size(hPrm.(perturbation).mod,2)
-              mprm(ii,jj) = str2num(get(hPrm.(perturbation).mod(ii,jj),'String'));
-            end
-          end
-          idx = all(prm==0,2);
-          if all(idx)
-            prm = zeros(1,size(prm,2));
-          else
-            prm(idx,:) = [];
-          end
-          idx = all(mprm==0,2);
-          mprm(idx,:) = [];
-        case 'bump'
-          for ii = 1:size(hPrm.(perturbation).prm,1)
-            for jj = 1:size(hPrm.(perturbation).prm,2)
-              prm(ii,jj) = str2num(get(hPrm.(perturbation).prm(ii,jj),'String'));
-            end
-          end
-        case 'custom'
-          customprm = {};
-          f = {};
-          customtype = [];
-          n = 1;
-          for ii = 1:size(hPrm.(perturbation).prm,1)
-            f{n} = get(hPrm.(perturbation).prm(ii,1),'String');
-            customprm{n} = str2num(get(hPrm.(perturbation).prm(ii,2),'String'));
-            if ~isempty(customprm{n})
-              customtype = [customtype ii];
-              n = n + 1;
-            end
-          end
-      end % switch
-      
-      switch perturbation
-        % case 'none'
-        %   m = objMakePlain(shape,args{:});
-        case 'sine'
-          m = objMakeSine(m,prm,mprm);
-        case 'noise'
-          m = objMakeNoise(m,prm,mprm);
-        case 'bump'
-          m = objMakeBump(m,prm);
-        case 'custom'
-          for ii = 1:length(customtype)
-            switch customtype(ii)
-              case 1
-                m = objMakeCustom(m,eval(sprintf('@%s',f{ii})),customprm{ii});
-              case 2
-                m = objMakeCustom(m,eval(f{ii}),customprm{ii});
-              case 3
-                M = evalin('base',f{ii});
-                m = objMakeCustom(m,M,customprm{ii});
-              case 4
-                m = objMakeCustom(m,f{ii},customprm{ii});
-            end
-          end
-      end %switch
-    end % looping over perturbations
-  end % is perturbations not empty
-  axes(hPreview.ax);
-  try
-    objView(m,[],get(hPreview.ax,'CameraPosition'));
-  catch
-    objView(m);
-  end
-  setappdata(hPreview.f,'model',m);
-end
-
-function selectFile(src,event,hPrm)
-  [filename,filepath] = uigetfile(...
-      {'*.tiff;*.jpg;*.jpeg;*.png','Image files (*.tiff;*.jpg;*.jpeg;*.png)';...
-       '*.*','All Files (*.*)'},...
-      'Select image to use as height map');
-  set(hPrm,'String',fullfile(filepath,filename));
-% ,hPrm.custom.prm(4)
-
-end
+  save('-v7',fullfile(filepath,filename),'model');
   
-function resetPrm(src,event,hPrm,perturbation,type)
-  switch perturbation
-    case 'sine'
-      switch type
-        case 'carr'
-          vals = [8 .1 0 0 0; 0 0 0 0 0; 0 0 0 0 0];
-        case 'mod'
-          vals = [0 0 0 0 0; 0 0 0 0 0; 0 0 0 0 0];
-      end
-    case 'noise'
-      switch type
-        case 'carr'
-          vals = [8 1 0 30 .1 0; 0 0 0 0 0 0; 0 0 0 0 0 0];
-        case 'mod'
-          vals = [0 0 0 0 0; 0 0 0 0 0; 0 0 0 0 0];
-      end
-    case 'bump'
-      vals = [20 .1 pi/12; 0 0 0; 0 0 0];
-  end
+  setappdata(h.main.f,'projectfilepath',filepath);
+  setappdata(h.main.f,'projectfilename',filename);
 
-  if strcmp(perturbation,'custom')
-    for ii = 1:size(hPrm,1)
-      for jj = 1:size(hPrm,2)
-        set(hPrm(ii,jj),'String','');
-      end
-    end
+end
+
+function saveproject_CB(src,event,h)
+  
+  model = getappdata(h.main.f,'model');
+
+  filepath = getappdata(h.main.f,'projectfilepath');
+  filename = getappdata(h.main.f,'projectfilename');
+  
+  ok = true;
+  if isempty(filepath) || isempty(filename)
+    ok = false;
+  elseif ~exist(filepath,'dir')
+    ok = false;
+  end
+  
+  if ~ok
+    [filename,filepath] = uiputfile(...
+        {'*.mat','Matlab/Octave files (*.mat)';...
+         '*.*','All Files (*.*)'},...
+        'Save project to file');
+  end
+  
+  if isequal(filename,0) || isequal(filepath,0)
+    return
+  end  
+  
+  save('-v7',fullfile(filepath,filename),'model');
+
+end
+
+function openproject_CB(src,event,h)
+  
+  [filename,filepath] = uigetfile(...
+      {'*.mat','Matlab/Octave files (*.mat)';...
+       '*.*','All Files (*.*)'},...
+      'Select project file');
+  
+  if isequal(filename,0) || isequal(filepath,0)
+    return
+  end  
+  
+  model = load(fullfile(filepath,filename));
+  
+  ok = checkinput(model);
+  
+  if ~ok
+    msgbox('Failed to open file. Not a valid project file.',...
+           'Invalid file');
     return
   end
   
-  for ii = 1:size(hPrm,1)
-    for jj = 1:size(hPrm,2)
-      set(hPrm(ii,jj),'String',num2str(vals(ii,jj)));
+  setappdata(h.main.f,'projectfilepath',filepath);
+  setappdata(h.main.f,'projectfilename',filename);
+  setappdata(h.main.f,'model',model.model);
+  
+  % This is a bit clumsy to have here....
+  for ii = 1:length(model.model.perturbation.use)
+    set(h.list.pert.use(ii),'value',model.model.perturbation.use(ii));
+  end
+
+  if length(model.model.perturbation.list)>1
+    set(h.menu.win.list,'Checked','on');
+    set(h.list.f,'Visible','On');
+  end
+    
+  updatelist(h);
+  updatemodel(h);
+  resetview(h);
+  
+end
+
+%------------------------------------------------------------
+% Shape:
+
+function updatemodel_CB(src,event,h)
+  s = get(src,'value');
+  shapes = get(src,'String');
+  model = getappdata(h.main.f,'model');
+  model.shape.shape = shapes{s};
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+  openwin(h,'curve');
+end
+
+function updatemodelreso_CB(src,event,h,idx)
+  % key = get(gcf,'CurrentKey');
+  % if strcmp(key,'return')
+  model = getappdata(h.main.f,'model');
+  model.shape.(model.shape.shape).npoints(idx) = uint32(str2num(get(src,'String')));
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+  %end
+end
+
+function updatemodelheight_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case {'plane','cylinder','revolution','extrusion','worm'}
+      model.shape.(model.shape.shape).height = get(src,'String');
+  end
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end
+
+function updatemodelwidth_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case 'plane'
+      model.shape.(model.shape.shape).width = get(src,'String');
+  end
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end
+
+function updatemodelminorradius_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case 'torus'
+      model.shape.(model.shape.shape).minor_radius = get(src,'String');
+  end
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end
+
+function updatemodelradius_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case {'sphere','ellipsoid','torus','cylinder','revolution','extrusion','worm','disk'}
+      model.shape.(model.shape.shape).radius = get(src,'String');
+  end
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end
+
+function updatemodelsuper_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case {'ellipsoid','torus'}
+      model.shape.(model.shape.shape).super = get(src,'String');
+  end    
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end
+
+function updatemodelrpar_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case 'torus'
+      model.shape.(model.shape.shape).rpar = get(src,'String');
+  end
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end  
+
+function updatemodelcaps_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  switch model.shape.shape
+    case {'cylinder','revolution','extrusion','worm'}
+      model.shape.(model.shape.shape).caps = get(src,'Value');
+  end
+  setappdata(h.main.f,'model',model);
+  updatemodel(h);
+end
+
+function resetmodelprm_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  resetmodelprm(h,model.shape.shape);
+  updatemodel(h);
+end  
+
+function resetmodelprm(h,shape)
+  model = getappdata(h.main.f,'model');
+  default = getappdata(h.main.f,'default');
+  switch model.shape.shape
+    case {'revolution','extrusion','worm'}  
+      tmp = model.shape.(shape).curve;
+      model.shape.(shape) = default.shape.(shape);
+      model.shape.(shape).curve = tmp;
+    otherwise
+      model.shape.(shape) = default.shape.(shape);
+  end
+  setappdata(h.main.f,'model',model);
+end
+
+%------------------------------------------------------------
+% Preview:
+
+function toggleaxes_CB(src,event,h)
+  show = get(src,'Value');
+  if show
+    set(h.main.prev.ax,'Visible','On');
+    % xlabel('x');
+    % ylabel('z');
+    % zlabel('y');
+  else
+    set(h.main.prev.ax,'Visible','Off');
+  end
+end
+
+function exportmodel_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  htmp = h.main.export.var;
+  bgcol = get(htmp,'BackgroundColor');
+  varname = get(htmp,'String');
+  try
+    assignin('base',varname,model.m);
+    set(htmp,'BackgroundColor',[.2 .8 .2]);
+  catch
+    set(htmp,'BackgroundColor',[1 .2 .2]);
+  end    
+  pause(.2);
+  set(htmp,'BackgroundColor',bgcol);
+end
+
+function savemodel_CB(src,event,h)
+  model = getappdata(h.main.f,'model');
+  htmp = h.main.save.model.filename;
+  bgcol = get(htmp,'BackgroundColor');
+  
+  filename = get(htmp,'String');
+  if isempty(filename)
+    set(htmp,'BackgroundColor',[1 .2 .2]);
+  else
+    try
+      if isempty(regexp(filename,'\.obj$'))
+        filename = [filename,'.obj'];
+      end
+      model.m = objSet(model.m,'filename',filename);
+      objSave(model.m);
+      set(htmp,'BackgroundColor',[.2 .8 .2]);
+    catch
+      set(htmp,'BackgroundColor',[1 .2 .2]);
+    end
+  end
+  pause(.2);
+  set(htmp,'BackgroundColor',bgcol);
+end
+
+function resetview_CB(src,event,h)
+  resetview(h);
+end
+
+%------------------------------------------------------------
+% Perturbations:
+
+function updatepert_CB(src,event,h)
+  
+% Switch perturbation type
+  
+  model = getappdata(h.main.f,'model');
+  p = get(src,'value');
+  perts = get(src,'String');
+  idx = model.perturbation.current;
+  model.perturbation.list(idx).name = perts{p};
+  setappdata(h.main.f,'model',model);
+  updatelist(h);
+  updatemodel(h);
+end
+
+function updatepertprm_CB(src,event,h)
+  updatepertprm(h);
+  updatemodel(h);
+end
+
+function updatepertprm(h)
+  
+% Read perturbation values from the fields in the gui, save them in
+% the model structure.
+  
+  model = getappdata(h.main.f,'model');
+  idx = model.perturbation.current;
+  switch model.perturbation.list(idx).name
+    case 'none'
+      ;
+    case 'sine'
+      cpar = [];
+      for ii = 1:size(h.main.pert.sine.cpar,1)
+        for jj = 1:size(h.main.pert.sine.cpar,2)
+          val = str2num(get(h.main.pert.sine.cpar(ii,jj),'String'));
+          if isempty(val)
+            if jj>1
+              cpar(ii,:) = [];
+            end
+            break
+          else
+            cpar(ii,jj) = val;
+          end
+        end
+      end
+
+      mpar = [];
+      for ii = 1:size(h.main.pert.sine.mpar,1)
+        for jj = 1:size(h.main.pert.sine.mpar,2)
+          val = str2num(get(h.main.pert.sine.mpar(ii,jj),'String'));
+          if isempty(val)
+            if jj>1
+              mpar(ii,:) = [];
+            end
+            break
+          else
+            mpar(ii,jj) = val;
+          end            
+        end
+      end
+      
+      model.perturbation.list(idx).sine.cpar = cpar;
+      model.perturbation.list(idx).sine.mpar = mpar;
+      
+      val = str2num(get(h.main.pert.sine.tilt(1),'String'));
+      model.perturbation.list(idx).sine.tiltaxis = val;
+      val = str2num(get(h.main.pert.sine.tilt(2),'String'));
+      model.perturbation.list(idx).sine.tiltangle = val;
+      
+    case 'noise'
+      npar = [];
+      for ii = 1:size(h.main.pert.noise.npar,1)
+        for jj = 1:size(h.main.pert.noise.npar,2)
+          val = str2num(get(h.main.pert.noise.npar(ii,jj),'String'));
+          if isempty(val)
+            if jj>1
+              npar(ii,:) = [];
+            end
+            break
+          else
+            npar(ii,jj) = val;
+          end
+        end
+      end
+
+      mpar = [];
+      for ii = 1:size(h.main.pert.noise.mpar,1)
+        for jj = 1:size(h.main.pert.noise.mpar,2)
+          val = str2num(get(h.main.pert.noise.mpar(ii,jj),'String'));
+          if isempty(val)
+            if jj>1
+              mpar(ii,:) = [];
+            end
+            break
+          else
+            mpar(ii,jj) = val;
+          end            
+        end
+      end
+      
+      model.perturbation.list(idx).noise.npar = npar;
+      model.perturbation.list(idx).noise.mpar = mpar;
+    
+    case 'bump'
+      par = [];
+      for ii = 1:size(h.main.pert.bump.par,1)
+        for jj = 1:size(h.main.pert.bump.par,2)
+          val = str2num(get(h.main.pert.bump.par(ii,jj),'String'));
+          if isempty(val)
+            if jj>1
+              par(ii,:) = [];
+            end
+            break
+          else
+            par(ii,jj) = val;
+          end
+        end
+      end
+      
+      model.perturbation.list(idx).bump.par = par;
+    
+    case 'custom'
+      par = {{},{},{},{}};
+      for ii = 1:size(h.main.pert.custom.par,2)
+        val = get(h.main.pert.custom.par(1,ii),'String');
+        if isempty(val)
+          continue
+        else
+          par{ii}{1} = val;
+          val = str2num(get(h.main.pert.custom.par(2,ii),'String'));
+          par{ii}{2} = val;
+        end
+      end
+      
+      model.perturbation.list(idx).custom.par = par;
+      
+  end
+  setappdata(h.main.f,'model',model);
+end
+
+function resetpertprm_CB(src,event,h,field)
+  model = getappdata(h.main.f,'model');
+  idx = model.perturbation.current;
+  update = resetpertprm(h,model.perturbation.list(idx).name,field);
+  if update
+    updatemodel(h);
+  end
+end  
+
+function addtolist_CB(src,event,h)
+  updatepertprm(h);
+  model = getappdata(h.main.f,'model');
+  default = getappdata(h.main.f,'default');
+  idx = model.perturbation.current;
+  
+  n = length(model.perturbation.list) + 1;
+
+  fns = fieldnames(default.perturbation);
+  for ii = 1:length(fns)
+    model.perturbation.list(n).(fns{ii}) = default.perturbation.(fns{ii});
+  end
+  
+  model.perturbation.current = n;
+ 
+  set(h.list.pert.use(n),'value',1);
+  
+  % set(h.menu.win.list,'Checked','on');
+  % set(h.list.f,'Visible','On');  
+  
+  setappdata(h.main.f,'model',model);
+  updatelist(h);
+  updatemodel(h);
+  
+end
+
+function selectpert_CB(src,event,h)
+
+  model = getappdata(h.main.f,'model');
+  idx = str2num(get(src,'tag'));
+  
+  model.perturbation.current = idx;
+  setappdata(h.main.f,'model',model);
+  updatelist(h);  
+  updatemodel(h);
+end
+
+function deletepert_CB(src,event,h)
+
+  model = getappdata(h.main.f,'model');
+  idx = model.perturbation.current;
+  if idx~=length(model.perturbation.list)
+    model.perturbation.list(idx) = [];
+  end
+  setappdata(h.main.f,'model',model);
+  updatelist(h);  
+  updatemodel(h);
+end
+
+function select_mfile_CB(src,event,h)
+  [filename,filepath] = uigetfile(...
+      {'*.m','m-files (*.m)';... % 
+       '*.*','All Files (*.*)'},...
+      'Select function file');
+  set(h,'String',fullfile(filepath,filename));
+end
+
+function select_figfile_CB(src,event,h)
+  [filename,filepath] = uigetfile(...
+      {'*.tiff;*.jpg;*.jpeg;*.png','Image files (*.tiff;*.jpg;*.jpeg;*.png)';... % 
+       '*.*','All Files (*.*)'},...
+      'Select image to use as height map');
+  set(h,'String',fullfile(filepath,filename));
+end
+
+function updatelist(h) 
+  model = getappdata(h.main.f,'model');
+  idx = model.perturbation.current;
+  npert = length(model.perturbation.list);
+  for ii = 1:length(h.list.pert.select)
+    if ii<=npert
+      
+      str = sprintf('%2d. %s',ii,model.perturbation.list(ii).name);
+      
+      if ii==npert
+        str = sprintf('%s (new)',str);
+      end
+      
+      set(h.list.pert.select(ii),...
+          'enable','on',...
+          'String', str);
+      
+      set(h.list.pert.use(ii),'enable','on');
+      
+      % set(h.list.pert.select(ii),'foregroundcolor',col);
+
+      if ii == idx
+        set(h.list.pert.select(ii),'Value',1,'fontweight','bold');
+      else
+        set(h.list.pert.select(ii),'Value',0,'fontweight','normal');
+      end
+    else
+      set(h.list.pert.use(ii),'enable','off','Value',0);
+      set(h.list.pert.select(ii),'enable','off','Value',0,'fontweight','normal','String','');
     end
   end
 end
 
+function update = resetpertprm(h,pert,field)
+% Reset perturbation parameters to default values.
+  
+  update = true;
+  model = getappdata(h.main.f,'model');
+  idx = model.perturbation.current;
+  default = getappdata(h.main.f,'default');
+  if nargin>2 && ~isempty(field)
+    v1 = model.perturbation.list(idx).(pert).(field);
+    v2 = default.perturbation.(pert).(field);
+    if isequal(v1,v2)
+      update = false;
+      clear v1 v2
+      return
+    end
+    clear v1 v2
+    model.perturbation.list(idx).(pert).(field) = default.perturbation.(pert).(field);
+  else
+    v1 = model.perturbation.list(idx).(pert);
+    v2 = default.perturbation.(pert);
+    if isequal(v1,v2)
+      update = false;
+      clear v1 v2
+      return
+    end
+    clear v1 v2    
+    model.perturbation.list(idx).(pert) = default.perturbation.(pert);
+  end
+  setappdata(h.main.f,'model',model);
+end
+
 %------------------------------------------------------------
-% Callback functions for profiles
+% Other functions:
+
+function updatemodel(h)
+  
+% Update the model structure. Fetch the correct parameters for
+% shape and perturbation, put them into the 'current' field, and
+% also write them into the fields of the gui.
+  
+  model = getappdata(h.main.f,'model');
+  ipert = model.perturbation.current;
+  fontsize = getappdata(h.main.f,'fontsize');
+  margin = getappdata(h.main.f,'margin');
+  col = getappdata(h.main.f,'col');    
+  
+  % Fetch model shape and perturbation, and set them in the
+  % pulldown menus so that them menus show correct setting also
+  % when loading a saved project
+  shapes = get(h.main.shape.shape,'String');
+  idx = find(cellfun(@(x) isequal(x,model.shape.shape), shapes));
+  set(h.main.shape.shape,'Value',idx);
+
+  perts = get(h.main.pert.pert,'String');
+  idx = find(cellfun(@(x) isequal(x,model.perturbation.list(ipert).name), perts));
+  set(h.main.pert.pert,'Value',idx);
+  
+  set(h.main.shape.height_lab,'foregroundcolor',col.txt.inact);
+  set(h.main.shape.height,'enable','off');
+  set(h.main.shape.width_lab,'foregroundcolor',col.txt.inact);
+  set(h.main.shape.width,'enable','off');
+  set(h.main.shape.radius_lab,'foregroundcolor',col.txt.inact);
+  set(h.main.shape.radius,'enable','off');
+  set(h.main.shape.minor_radius_lab,'foregroundcolor',col.txt.inact);
+  set(h.main.shape.minor_radius,'enable','off');
+  set(h.main.shape.super_lab,'foregroundcolor',col.txt.inact);
+  set(h.main.shape.super,'enable','off');
+  set(h.main.shape.rpar_lab,'foregroundcolor',col.txt.inact);
+  set(h.main.shape.rpar,'enable','off');
+  set(h.main.shape.caps,'enable','off');
+  set(h.main.shape.reso.npoints(1),'String',num2str(model.shape.(model.shape.shape).npoints(1)));
+  set(h.main.shape.reso.npoints(2),'String',num2str(model.shape.(model.shape.shape).npoints(2)));    
+  
+  set(h.curve.reset,'enable','off');
+  
+  model.shape.current = struct();
+  model.shape.current.npoints = model.shape.(model.shape.shape).npoints;    
+  
+  switch model.shape.shape
+    case 'sphere'
+      % TODO Check and fix radius vector length
+      % TODO The thing below could be automated instead of
+      % explicitly using switch
+      set(h.main.shape.radius_lab,'String','Radius (r)','foregroundcolor',col.txt.act);
+      set(h.main.shape.radius,'String',model.shape.sphere.radius,'enable','on');
+      model.shape.current.radius = str2num(model.shape.sphere.radius);
+    case {'cylinder','revolution','extrusion','worm'}
+      set(h.main.shape.caps,'enable','on');
+      model.shape.current.caps = model.shape.(model.shape.shape).caps;
+
+      set(h.main.shape.height_lab,'foregroundcolor',col.txt.act);
+      set(h.main.shape.height,'String',model.shape.(model.shape.shape).height,'enable','on');
+      model.shape.current.height = str2num(model.shape.(model.shape.shape).height);
+
+      set(h.main.shape.radius_lab,'String','Radius (r)','foregroundcolor',col.txt.act);
+      set(h.main.shape.radius,'String',model.shape.(model.shape.shape).radius,'enable','on');
+      model.shape.current.radius = str2num(model.shape.(model.shape.shape).radius);
+      
+      if ~strcmp(model.shape.shape,'cylinder')
+        model.shape.current.rcurve = model.shape.(model.shape.shape).curve(1).rcurve;
+        model.shape.current.ecurve = model.shape.(model.shape.shape).curve(2).ecurve;
+        set(h.curve.reset,'enable','on');
+      end
+      
+    case 'ellipsoid'
+      set(h.main.shape.super_lab,'String','Superellipsoid prm','foregroundcolor',col.txt.act);
+      set(h.main.shape.super,'String',model.shape.ellipsoid.super,'enable','on');
+      model.shape.current.super = str2num(model.shape.ellipsoid.super);
+
+      tooltip = 'Radius of ellipsoid, either one (r) or three values (rx, ry, rz)';
+      set(h.main.shape.radius_lab,'String','Radius (rx, ry, rz)','foregroundcolor',col.txt.act,'TooltipString',tooltip);
+      set(h.main.shape.radius,'String',model.shape.ellipsoid.radius,'enable','on','TooltipString',tooltip);
+      model.shape.current.radius = str2num(model.shape.ellipsoid.radius);
+    case 'torus'
+      set(h.main.shape.super_lab,'String','Supertorus prm','foregroundcolor',col.txt.act);
+      set(h.main.shape.super,'String',model.shape.torus.super,'enable','on');
+      model.shape.current.super = str2num(model.shape.torus.super);
+
+      tooltip = 'Radius of torus, either one or two values';
+      set(h.main.shape.radius_lab,'String','Radius (rx, rz)','foregroundcolor',col.txt.act,'TooltipString',tooltip);
+      set(h.main.shape.radius,'String',model.shape.torus.radius,'enable','on','TooltipString',tooltip);
+      model.shape.current.radius = str2num(model.shape.torus.radius);
+      
+      set(h.main.shape.minor_radius_lab,'foregroundcolor',col.txt.act);
+      set(h.main.shape.minor_radius,'String',model.shape.torus.minor_radius,'enable','on');
+      model.shape.current.minor_radius = str2num(model.shape.torus.minor_radius);
+      
+      set(h.main.shape.rpar_lab,'foregroundcolor',col.txt.act);
+      set(h.main.shape.rpar,'String',model.shape.torus.rpar,'enable','on');
+      if ~isempty(model.shape.torus.rpar)
+        model.shape.current.rpar = str2num(model.shape.torus.rpar);
+      end
+    case 'plane'
+      set(h.main.shape.height_lab,'foregroundcolor',col.txt.act);
+      set(h.main.shape.height,'String',model.shape.plane.height,'enable','on');
+      model.shape.current.height = str2num(model.shape.plane.height);
+      
+      set(h.main.shape.width_lab,'foregroundcolor',col.txt.act);
+      set(h.main.shape.width,'String',model.shape.plane.width,'enable','on');
+      model.shape.current.width = str2num(model.shape.plane.width);
+    case 'disk'
+      set(h.main.shape.radius_lab,'String','Radius (r)','foregroundcolor',col.txt.act);
+      set(h.main.shape.radius,'String',model.shape.disk.radius,'enable','on');
+      model.shape.current.radius = str2num(model.shape.disk.radius);
+  end
+  
+  fn = fieldnames(model.shape.current);
+  prm = {};
+  for ii = 1:length(fn)
+    prm{2*ii-1} = fn{ii};
+    prm{2*ii}   = model.shape.current.(fn{ii});
+  end
+  clear fn
+  
+  model.m = objMakePlain(model.shape.shape,prm{:});
+  
+  % Perturbations
+  
+  % Add perturbations in the list
+  usepert = [1];
+  if length(model.perturbation.list)
+    for ii = 1:length(model.perturbation.list)
+      switch model.perturbation.list(ii).name
+        case 'sine'
+          cpar = model.perturbation.list(ii).sine.cpar;
+          mpar = model.perturbation.list(ii).sine.mpar;
+          tiltaxis = model.perturbation.list(ii).sine.tiltaxis;
+          tiltangle = model.perturbation.list(ii).sine.tiltangle;
+          if ~isempty(tiltaxis) && ~isempty(tiltangle)
+            model.m = objMakeSine(model.m,cpar,mpar,'axis',tiltaxis,'angle',tiltangle);
+          else
+            model.m = objMakeSine(model.m,cpar,mpar);
+          end
+          usepert = [usepert get(h.list.pert.use(ii),'value')];
+        case 'noise'
+          npar = model.perturbation.list(ii).noise.npar;
+          mpar = model.perturbation.list(ii).noise.mpar;
+          model.m = objMakeNoise(model.m,npar,mpar);
+          usepert = [usepert get(h.list.pert.use(ii),'value')];
+        case 'bump'
+          par = model.perturbation.list(ii).bump.par;
+          model.m = objMakeBump(model.m,par);          
+          usepert = [usepert get(h.list.pert.use(ii),'value')];
+        case 'custom'
+          for jj = 1:4
+            par = model.perturbation.list(ii).custom.par{jj};
+            if isempty(par)
+              % fprintf('%d: Empty custom par.\n',jj);
+              continue
+            end
+            if jj==1
+              keyboard
+              model.m = objMakeCustom(model.m,eval(par{1}),par{2});
+            elseif jj==2
+              if par{1}(1)~='@', par{1} = sprintf('@%s',par{1}); end
+              model.m = objMakeCustom(model.m,eval(par{1}),par{2});
+            elseif jj==3
+              model.m = objMakeCustom(model.m,evalin('base',par{1}),par{2});
+            else
+              model.m = objMakeCustom(model.m,par{1},par{2});
+            end
+            usepert = [usepert get(h.list.pert.use(ii),'value')];
+          end
+      end
+    end
+  end
+
+  % model.perturbation.use = usepert;
+
+  % This is just for saving and loading the model, to keep the
+  % checkbox values in the perturbation list. The vector usepert
+  % created above will actually be passed to the objSet-function,
+  % as it skips 'none'-perturbations (except the first one).
+  model.perturbation.use = [];
+  for ii = 1:length(h.list.pert.use) 
+    model.perturbation.use(ii) = get(h.list.pert.use(ii),'value');
+  end
+  
+  % Show params only for current perturbation, hide
+  % others. Initially I just set everything invisible, then set the
+  % current one visible, but that caused a visible hide/show in
+  % Octave when the model was updated but perturbation types was
+  % the same. So now we loop through perturbations to avoid that.
+
+  fn = model.perturbation.list(ipert).types;
+  for ii = 1:length(fn)
+    if strcmp(fn{ii},model.perturbation.list(ipert).name)
+      set(h.main.pert.(fn{ii}).pn,'visible','on');
+    else
+      set(h.main.pert.(fn{ii}).pn,'visible','off');
+    end
+  end
+  clear fn
+  
+  % Hide buttons for reset, addtolist for 'none'
+  if strcmp(model.perturbation.list(ipert).name,'none')
+    set(h.main.pert.update,'visible','on');
+    set(h.main.pert.reset,'visible','off');
+    set(h.main.pert.addtolist,'visible','off');
+  else
+    set(h.main.pert.update,'visible','on');
+    set(h.main.pert.reset,'visible','on');
+    set(h.main.pert.addtolist,'visible','on');
+  end  
+  
+  switch model.perturbation.list(ipert).name
+    case 'none'
+      ;
+    case 'sine'
+      writesineprm(h,model);
+    case 'noise'
+      writenoiseprm(h,model); 
+    case 'bump'
+      writebumpprm(h,model); 
+    case 'custom'
+      writecustomprm(h,model); 
+  end
+  
+  % update rev/ext curves to match the current model (in case model
+  % was changed from pull down menu)
+  switch model.shape.shape
+    case {'revolution','extrusion','worm'}
+      updatecurves(model,h)
+  end
+  
+  % % The first one is always the plain model with no perturbation
+  % usepert = [1];  
+  % % Include / exclude the perturbations in the list
+  % for ii = 1:length(model.perturbation.list)
+  %   usepert(ii+1) = get(h.list.pert.use(ii),'value');
+  % end
+  % numel(usepert)
+  % numel(model.m.flags.use_perturbation)
+  
+  model.m = objSet(model.m,'use_perturbation',usepert);
+
+  setappdata(h.main.f,'model',model);
+  
+  showmodel(h);
+
+  % set(h.main.cmd.cmd,'String','m = objMakePlain() TODO TODO TODO');
+  
+end
+
+function showmodel(h)
+  
+% Show model preview in the preview axis
+  
+  model = getappdata(h.main.f,'model');
+  axes(h.main.prev.ax);
+  visible = get(h.main.prev.showax,'value');
+  try
+    objView(model.m,[],get(gca,'CameraPosition'),visible);
+  catch
+    objView(model.m,[],[],visible);
+  end
+end
+
+function resetview(h)
+  
+% Set default view of the model
+  
+  model = getappdata(h.main.f,'model');
+  axes(h.main.prev.ax);
+  visible = get(h.main.prev.showax,'value');
+  objView(model.m,[],[],visible);
+end
+
+% function v = fixlength(u,n)
+% % TODO
+
+%   v = [];
+
+% end
+
+function setnormalized(h)
+  
+% setnormalized
+%
+% Set all parts of the gui to use normalized units (they are
+% initialized in pixels) to enable resizing of the window. Recurse
+% into every field of the handle structure.
+  
+  if isstruct(h)
+    f = fieldnames(h);
+    for ii = 1:length(f)
+      setnormalized(h.(f{ii}));
+    end
+  elseif any(ishandle(h))
+    for ii = 1:numel(h)
+      if ishandle(h(ii))
+        try
+          set(h(ii),'units','normalized');
+        end
+      end
+    end
+  end
+end
 
 
-function keyfunc(src,data)
+function writesineprm(h,model)
+  
+% writesineprm
+% 
+% Write sine parameters from the model structure to the fields in
+% the gui.
+  
+  idx = model.perturbation.current;
+  
+  cpar = model.perturbation.list(idx).sine.cpar;
+  mpar = model.perturbation.list(idx).sine.mpar;  
+  
+  for ii = 1:size(h.main.pert.sine.cpar,1)
+    for jj = 1:size(h.main.pert.sine.cpar,2)
+      if size(cpar,1)>=ii
+        val = num2str(cpar(ii,jj));
+      else
+        val = '';
+      end
+      set(h.main.pert.sine.cpar(ii,jj),'String',val);
+    end
+  end
+  
+  for ii = 1:size(h.main.pert.sine.mpar,1)
+    for jj = 1:size(h.main.pert.sine.mpar,2)
+      if size(mpar,1)>=ii
+        val = num2str(mpar(ii,jj));
+      else
+        val = '';
+      end
+      set(h.main.pert.sine.mpar(ii,jj),'String',val);
+    end
+  end
+  
+  tiltaxis = model.perturbation.list(idx).sine.tiltaxis;
+  val = num2str(tiltaxis);
+  set(h.main.pert.sine.tilt(1),'String',val);
+  
+  tiltangle = model.perturbation.list(idx).sine.tiltangle;
+  val = num2str(tiltangle);
+  set(h.main.pert.sine.tilt(2),'String',val);
+
+
+end
+
+function writenoiseprm(h,model)
+
+% writenoiseprm
+% 
+% Write noise parameters from the model structure to the fields in
+% the gui.
+
+  idx = model.perturbation.current;
+  
+  npar = model.perturbation.list(idx).noise.npar;
+  mpar = model.perturbation.list(idx).noise.mpar;  
+  
+  for ii = 1:size(h.main.pert.noise.npar,1)
+    for jj = 1:size(h.main.pert.noise.npar,2)
+      if size(npar,1)>=ii
+        val = num2str(npar(ii,jj));
+      else
+        val = '';
+      end
+      set(h.main.pert.noise.npar(ii,jj),'String',val);
+    end
+  end
+  
+  for ii = 1:size(h.main.pert.noise.mpar,1)
+    for jj = 1:size(h.main.pert.noise.mpar,2)
+      if size(mpar,1)>=ii
+        val = num2str(mpar(ii,jj));
+      else
+        val = '';
+      end
+      set(h.main.pert.noise.mpar(ii,jj),'String',val);
+    end
+  end
+
+end
+
+function writebumpprm(h,model)
+
+% writebumpprm
+% 
+% Write bump parameters from the model structure to the fields in
+% the gui.
+  
+  idx = model.perturbation.current;
+  
+  par = model.perturbation.list(idx).bump.par;
+  
+  for ii = 1:size(h.main.pert.bump.par,1)
+    for jj = 1:size(h.main.pert.bump.par,2)
+      if size(par,1)>=ii
+        val = num2str(par(ii,jj));
+      else
+        val = '';
+      end
+      set(h.main.pert.bump.par(ii,jj),'String',val);
+    end
+  end
+  
+end
+
+function writecustomprm(h,model)
+  
+  idx = model.perturbation.current;
+  par = model.perturbation.list(idx).custom.par;
+  
+  for jj = 1:size(par,2)
+    if isempty(par{jj})
+      val1 = '';
+      val2 = '';
+    else
+      if isempty(par{jj}{1})
+        val1 = '';
+      else
+        val1 = par{jj}{1};
+      end
+      if isempty(par{jj}{2})
+        val2 = '';
+      else
+        val2 = num2str(par{jj}{2});
+      end
+    end
+    set(h.main.pert.custom.par(1,jj),'String',val1);
+    set(h.main.pert.custom.par(2,jj),'String',val2);    
+  end
+
+end
+
+function ok = checkinput(model)
+
+  ok = true;
+  if ~isfield(model,'model'), ok = false; return; end
+  if ~isfield(model.model,'shape'), ok = false; return; end
+  if ~isfield(model.model,'perturbation'), ok = false; return; end
+  if ~isfield(model.model,'m'), ok = false; return; end
+    
+end
+
+%------------------------------------------------------------
+% App window close funcs
+
+function closeapp_CB(src,event,h,win)
+
+  if strcmp(win,'main')
+    delete(h.curve.f);
+    delete(h.list.f);
+    delete(h.main.f);
+  else
+    idx = strmatch(win,{'list','curve','spine'});
+    set(h.menu.win.(win),'Checked','off');
+    set(h.(win).f,'Visible','Off');
+    fprintf('Close the main window to exit.\n');
+  end
+end
+
+function togglewin_CB(src,event,h,win)
+  
+  checked = strcmp(lower(get(src,'Checked')),'on');
+  
+  if checked
+    set(src,'Checked','off');
+    set(h.(win).f,'Visible','Off');
+  else
+    set(src,'Checked','on');    
+    set(h.(win).f,'Visible','On');
+  end
+
+end
+
+function openwin(h,win)
+  set(h.menu.win.(win),'Checked','on');    
+  set(h.(win).f,'Visible','On');  
+end
+
+%------------------------------------------------------------
+% Profile curves
+
+function keyfunc_CB(src,data,h)
   switch data.Key
     case 'return'
-      %setappdata(src,'abort',true);
-      %fprintf('Enter pressed.\n');
-      set(gcf,'windowbuttondownfcn','');
-      set(gcf,'windowbuttonupfcn','');
-      set(0,'userdata',true);
+      %   set(gcf,'windowbuttondownfcn','');
+      %   set(gcf,'windowbuttonupfcn','');
+      %   set(0,'userdata',true);
+      updatemodel(h);
     case 'plus'
       xlim = get(gca,'XLim');
       xlim(2) = xlim(2) + .5;
@@ -1248,55 +2301,68 @@ function keyfunc(src,data)
 end
 
 
-function starttrackmouse(src,data)
+function starttrackmouse_CB(src,data,h)
+  
+  model = getappdata(h.main.f,'model');
+
+  switch model.shape.shape
+    case {'revolution','extrusion','worm'}
+      ;
+    otherwise
+      set(src,'windowbuttonupfcn','');
+      return
+  end
   
   figure(src);
 
   profiletype = getappdata(gca,'profiletype');
   pidx = strmatch(profiletype,{'linear','polar'});
   
-  h = getappdata(src,'h');
-  x = get(h(pidx,1),'xdata');
-  y = get(h(pidx,1),'ydata');
+  % Get handle to plotted points
+  hdat = h.curve.dat;
+  % Get x and y coords
+  x = get(hdat(pidx,1),'xdata');
+  y = get(hdat(pidx,1),'ydata');
+  % Get point where mouse down
   pos = get(gca,'currentpoint');
+  % If distance to closest data point is smaller than some arb
+  % cutoff, assume observer chose that point and is moving /
+  % deleting it. Otherwise, create new point.
   dist = sqrt((x-pos(1,1)).^2+(y-pos(1,2)).^2);
+  
+  
   if min(dist)<.2
     idx = find(dist==min(dist));
     xtmp = x(idx);
     ytmp = y(idx);
-    hmove = getappdata(src,'hmovepoint');
+    hmove = h.curve.move; 
     set(hmove(pidx),'xdata',xtmp,'ydata',ytmp);
     setappdata(src,'newpoint',false);
-    setappdata(src,'hmovepoint',hmove);
     setappdata(src,'idx',idx);
   else
     setappdata(src,'newpoint',true);
   end
   switch profiletype
     case 'linear'
-      set(src,'windowbuttonupfcn',@endtrackmouse);
+      set(src,'windowbuttonupfcn',{@endtrackmouse_CB,h});
     case 'polar'
-      set(src,'windowbuttonupfcn',@endtrackmousepolar);
+      set(src,'windowbuttonupfcn',{@endtrackmousepolar_CB,h});
   end      
-  set(src,'windowbuttonmotionfcn',@plotpoint);
+  set(src,'windowbuttonmotionfcn',{@plotpoint_CB,h});
 end
 
 
-function endtrackmouse(src,data)
+function endtrackmouse_CB(src,data,h)
   set(src,'windowbuttonmotionfcn','');
 
-  htmp = getappdata(src,'hmovepoint');
-  set(htmp(1),'xdata',[],'ydata',[]);
+  set(h.curve.move(1),'xdata',[],'ydata',[]);
+  set(h.curve.late(1),'xdata',[],'ydata',[]);
 
-  htmp = getappdata(src,'hlatest');
-  set(htmp(1),'xdata',[],'ydata',[]);
-
-  profiletype = getappdata(src,'profiletype');
   con = getappdata(src,'connect');
 
-  h = getappdata(src,'h');
-  xdat = get(h(1,1),'xdata');
-  ydat = get(h(1,1),'ydata');
+  hdat = h.curve.dat;
+  xdat = get(hdat(1,1),'xdata');
+  ydat = get(hdat(1,1),'ydata');
   xlim = get(gca,'XLim');
   ylim = get(gca,'YLim');
   pos = get(gca,'currentpoint');
@@ -1329,14 +2395,14 @@ function endtrackmouse(src,data)
       end
     end
   end
-  set(h(1,1),'xdata',xdat,'ydata',ydat);
-  set(h(1,2),'xdata',-xdat,'ydata',ydat);
+  set(hdat(1,1),'xdata',xdat,'ydata',ydat);
+  set(hdat(1,2),'xdata',-xdat,'ydata',ydat);
   
-  h = getappdata(src,'hsmooth');
+  hsmooth = h.curve.smooth;
   npts = getappdata(src,'npoints');
   interp = getappdata(src,'interp');
-  x1 = get(h(1,1),'xdata');
-  y1 = get(h(1,1),'ydata');
+  x1 = get(hsmooth(1,1),'xdata');
+  y1 = get(hsmooth(1,1),'ydata');
 
   
   if con
@@ -1349,30 +2415,40 @@ function endtrackmouse(src,data)
     x1 = interp1(ydat,xdat,y1,interp);
   end
   
-  set(h(1,1),'xdata',x1);
-  set(h(1,2),'xdata',-x1);
+  set(hsmooth(1,1),'xdata',x1);
+  set(hsmooth(1,2),'xdata',-x1);
 
-  %pause(.1);
-  drawnow; drawnow; drawnow
+  drawnow; drawnow
+  
+  model = getappdata(h.main.f,'model');
+  
+  switch model.shape.shape
+    case {'revolution','extrusion','worm'}
+      model.shape.(model.shape.shape).curve(1).rcurve = x1;
+      
+      model.shape.(model.shape.shape).curve(1).xdata = xdat;
+      model.shape.(model.shape.shape).curve(1).ydata = ydat;
+      model.shape.(model.shape.shape).curve(1).xsmooth = x1;
+      model.shape.(model.shape.shape).curve(1).ysmooth = y1;
+      
+  end
 
+  setappdata(h.main.f,'model',model);
+  
 end
 
 
-function endtrackmousepolar(src,data)
+function endtrackmousepolar_CB(src,data,h)
   set(src,'windowbuttonmotionfcn','');
 
-  htmp = getappdata(src,'hmovepoint');
-  set(htmp(2),'xdata',[],'ydata',[]);
+  set(h.curve.move(2),'xdata',[],'ydata',[]);
+  set(h.curve.late(2),'xdata',[],'ydata',[]);
 
-  htmp = getappdata(src,'hlatest');
-  set(htmp(2),'xdata',[],'ydata',[]);
-
-  profiletype = getappdata(src,'profiletype');
   con = getappdata(src,'connect');
 
-  h = getappdata(src,'h');
-  xdat = get(h(2,1),'xdata');
-  ydat = get(h(2,1),'ydata');
+  hdat = h.curve.dat;
+  xdat = get(hdat(2,1),'xdata');
+  ydat = get(hdat(2,1),'ydata');
   xlim = get(gca,'XLim');
   ylim = get(gca,'YLim');
   pos = get(gca,'currentpoint');
@@ -1410,14 +2486,11 @@ function endtrackmousepolar(src,data)
       end
     end
   end
-  set(h(2,1),'xdata',xdat,'ydata',ydat);
+  set(hdat(2,1),'xdata',xdat,'ydata',ydat);
 
-  h = getappdata(src,'hsmooth');
+  hsmooth = h.curve.smooth;
   npts = getappdata(src,'npoints');
-  interp = getappdata(src,'interp');
-  %x1 = get(h(1),'xdata');
-  %y1 = get(h(1),'ydata');
-  
+  interp = getappdata(src,'interp');  
 
   th1 = linspace(0,2*pi,npts(2)+1);
   
@@ -1447,393 +2520,95 @@ function endtrackmousepolar(src,data)
   
   
   
-  set(h(2,1),'xdata',x1);
-  set(h(2,1),'ydata',y1);
-  setappdata(src,'rdata',r1);
+  set(hsmooth(2,1),'xdata',x1);
+  set(hsmooth(2,1),'ydata',y1);
+  % setappdata(src,'rdata',r1);
   
+  drawnow; drawnow
 
-
-  %pause(.1);
-  drawnow; drawnow; drawnow
-
+  model = getappdata(h.main.f,'model');
+  
+  switch model.shape.shape
+    case {'revolution','extrusion','worm'}
+      model.shape.(model.shape.shape).curve(2).ecurve = r1;
+  
+      model.shape.(model.shape.shape).curve(2).xdata = xdat;
+      model.shape.(model.shape.shape).curve(2).ydata = ydat;
+      % model.shape.(model.shape.shape).curve(2).rdata = rdat;
+      model.shape.(model.shape.shape).curve(2).xsmooth = x1;
+      model.shape.(model.shape.shape).curve(2).ysmooth = y1;
+      
+  end
+  
+  setappdata(h.main.f,'model',model);
+  
 end
 
 
-function plotpoint(src,event)
+function plotpoint_CB(src,event,h)
   profiletype = getappdata(gca,'profiletype');
   idx = strmatch(profiletype,{'linear','polar'});
   
-  h = getappdata(src,'hlatest');
+  hlate = h.curve.late;
   pos = get(gca,'currentpoint');
-  set(h(idx),'xdata',pos(1,1),'ydata',pos(1,2));
+  set(hlate(idx),'xdata',pos(1,1),'ydata',pos(1,2));
   drawnow
 end
 
-function toggleCurve(src,event,hPrm,hPreview,hCurve,hSpine)
-  usecurve = get(src,'Value');
-  which = str2num(get(src,'Tag'));
-  if which==1
-    setappdata(hCurve.f,'usercurve',usecurve);
-  else
-    setappdata(hCurve.f,'useecurve',usecurve);    
-  end
-  % if usecurve
-    
-  % end
-  updatePrm([],[],hPrm,hPreview,hCurve,hSpine);
+
+function updatecurves(model,h)
+  hdat = h.curve.dat;
+  hsmooth = h.curve.smooth;
+  
+  
+  xdat = model.shape.(model.shape.shape).curve(1).xdata;
+  ydat = model.shape.(model.shape.shape).curve(1).ydata;
+
+  xsmooth = model.shape.(model.shape.shape).curve(1).xsmooth;
+  ysmooth = model.shape.(model.shape.shape).curve(1).ysmooth;
+  
+  
+  set(hdat(1,1),'xdata',xdat,'ydata',ydat);
+  set(hdat(1,2),'xdata',-xdat,'ydata',ydat);
+  
+  set(hsmooth(1,1),'xdata',xsmooth);
+  set(hsmooth(1,2),'xdata',-xsmooth);
+  
+  
+  xdat = model.shape.(model.shape.shape).curve(2).xdata;
+  ydat = model.shape.(model.shape.shape).curve(2).ydata;
+
+  xsmooth = model.shape.(model.shape.shape).curve(2).xsmooth;
+  ysmooth = model.shape.(model.shape.shape).curve(2).ysmooth;
+  
+  set(hdat(2,1),'xdata',xdat,'ydata',ydat);
+
+  set(hsmooth(2,1),'xdata',xsmooth);
+  set(hsmooth(2,1),'ydata',ysmooth);
   
 end
-
-function resetCurve(src,event,hPrm,hPreview,hCurve,hSpine)
-
-  idx = str2num(get(src,'Tag'));
-
-  h0 = getappdata(hCurve.f,'h_orig');
-  h1 = getappdata(hCurve.f,'h');
   
-  set(h1(idx,1),'xdata',get(h0(idx,1),'xdata'));
-  set(h1(idx,1),'ydata',get(h0(idx,1),'ydata'));
+function resetcurve_CB(src,event,h,idx)
+
+% TODO: reset only rev/ext curve
   
-  if idx==1
-    set(h1(idx,2),'xdata',get(h0(idx,2),'xdata'));  
-    set(h1(idx,2),'ydata',get(h0(idx,2),'ydata'));  
-  else
-    rdata = getappdata(hCurve.f,'rdata_orig');
-    setappdata(hCurve.f,'rdata',rdata);
+  % get model
+  model = getappdata(h.main.f,'model');
+  default = getappdata(h.main.f,'default');
+  
+  % get handles
+  hdat = h.curve.dat;
+  hsmooth = h.curve.smooth;
+  
+  % replace with default values
+  switch model.shape.shape
+    case {'revolution','extrusion','worm'}  
+      model.shape.(model.shape.shape).curve(idx) = default.shape.(model.shape.shape).curve(idx);
   end
+  setappdata(h.main.f,'model',model);  
   
-  h0 = getappdata(hCurve.f,'hsmooth_orig');
-  h1 = getappdata(hCurve.f,'hsmooth');
-
-  set(h1(idx,1),'xdata',get(h0(idx,1),'xdata'));
-  set(h1(idx,1),'ydata',get(h0(idx,1),'ydata'));
-
-  if idx==1
-    set(h1(idx,2),'xdata',get(h0(idx,2),'xdata'));  
-    set(h1(idx,2),'ydata',get(h0(idx,2),'ydata'));  
-  end
-  
-  updatePrm([],[],hPrm,hPreview,hCurve,hSpine);
-  
+  % update
+  updatecurves(model,h);
+  updatemodel(h);
 end
 
-function exportCurveToWorkSpace(src,event,fh,th,curvetype)
-  if isempty(th)
-    h = src;
-  else
-    h = th;
-  end
-  bgcol = get(h,'BackgroundColor');
-  varname = get(h,'String');
-
-  switch curvetype
-    case 'linear'
-      hdat = getappdata(fh,'hsmooth');
-      curve = get(hdat(1,1),'xdata');
-    case 'polar'
-      curve = getappdata(fh,'rdata');
-      curve = curve(1:end-1);
-  end
-  try
-    assignin('base',varname,curve);
-    set(h,'BackgroundColor',[.2 .8 .2]);
-  catch
-    set(h,'BackgroundColor',[1 .2 .2]);
-  end
-  pause(.2);
-  set(h,'BackgroundColor',bgcol);
-end
-
-% Functions for preview window
-
-
-function exportToWorkSpace(src,event,th,fh)
-  if isempty(th)
-    h = src;
-  else
-    h = th;
-  end
-  bgcol = get(h,'BackgroundColor');
-  varname = get(h,'String');
-  m = getappdata(fh,'model');
-  try
-    assignin('base',varname,m);
-    set(h,'BackgroundColor',[.2 .8 .2]);
-  catch
-    set(h,'BackgroundColor',[1 .2 .2]);
-  end    
-  pause(.2);
-  set(h,'BackgroundColor',bgcol);
-end
-
-function saveModel(src,event,th,fh)
-  if isempty(th)
-    h = src;
-  else
-    h = th;
-  end  
-  bgcol = get(h,'BackgroundColor');
-
-  filename = get(h,'String');
-  if isempty(filename)
-    set(h,'BackgroundColor',[1 .2 .2]);
-  else
-    try
-      if isempty(regexp(filename,'\.obj$'))
-        filename = [filename,'.obj'];
-      end
-      m = getappdata(fh,'model');
-      m.filename = filename;
-      objSave(m);
-      set(h,'BackgroundColor',[.2 .8 .2]);
-    catch
-      set(h,'BackgroundColor',[1 .2 .2]);
-    end
-  end
-  pause(.2);
-  set(h,'BackgroundColor',bgcol);
-end
-
-function resetView(src,event,fh,ah)
-  m = getappdata(fh,'model');
-  showaxes = get(ah,'Visible');
-  axes(ah);
-  objView(m);
-  if strcmp(lower(showaxes),'on')
-    set(ah,'Visible','On');
-    xlabel('x');
-    ylabel('z');
-    zlabel('y');    
-  end
-end
-
-function toggleAxes(src,event,ah)
-  show = get(src,'Value');
-  if show
-    set(ah,'Visible','On');
-    xlabel('x');
-    ylabel('z');
-    zlabel('y');
-  else
-    set(ah,'Visible','Off');
-  end
-end
-
-
-% Functions for spine profiler
-
-function spinekeyfunc(src,data)
-  ;
-end
-
-function spinestarttrackmouse(src,data)
-  
-  figure(src);  
-  
-  spinetype = getappdata(gca,'spinetype');
-  sidx = strmatch(spinetype,{'x','z','y'});
-    
-  hdat = getappdata(src,'hdat');
-  x = get(hdat(sidx),'xdata');
-  y = get(hdat(sidx),'ydata');
-  pos = get(gca,'currentpoint');
-  % dist = abs([x-pos(1,1) y-pos(1,2)]); % 
-  if sidx==3
-    dist = sqrt((x/32-pos(1,1)/32).^2+(y-pos(1,2)).^2);
-  else
-    dist = sqrt((x-pos(1,1)).^2+(y/32-pos(1,2)/32).^2);
-  end
-  if min(dist)<.2
-    idx = find(dist==min(dist));
-    xtmp = x(idx);
-    ytmp = y(idx);
-    hmove = getappdata(src,'hmovepoint');
-    set(hmove(sidx),'xdata',xtmp,'ydata',ytmp);
-    setappdata(src,'newpoint',false);
-    % setappdata(src,'hmovepoint',hmove);
-    setappdata(src,'idx',idx);
-  else
-    setappdata(src,'newpoint',true);
-  end
-  set(src,'windowbuttonupfcn',@spineendtrackmouse);
-  set(src,'windowbuttonmotionfcn',@spineplotpoint);
-end
-
-function spineendtrackmouse(src,data)
-  set(src,'windowbuttonmotionfcn','');
-
-  spinetype = getappdata(gca,'spinetype');
-  sidx = strmatch(spinetype,{'x','z','y'});
-    
-  htmp = getappdata(src,'hmovepoint');
-  set(htmp(sidx),'xdata',[],'ydata',[]);
-
-  htmp = getappdata(src,'hlatest');
-  set(htmp(sidx),'xdata',[],'ydata',[]);
-
-  hdat = getappdata(src,'hdat');
-  xdat = get(hdat(sidx),'xdata');
-  ydat = get(hdat(sidx),'ydata');
-  xlim = get(gca,'XLim');
-  ylim = get(gca,'YLim');
-  pos = get(gca,'currentpoint');
-  x = pos(1,1);
-  y = pos(1,2);
-  offlimits = false;
-  if (x<xlim(1) || x>xlim(2)) || (y<ylim(1) || y>ylim(2))
-    offlimits = true;
-  end
-  
-  if sidx==3
-    tmp = xdat;
-    xdat = ydat;
-    ydat = tmp;
-    
-    tmp = x;
-    x = y;
-    y = tmp;
-    
-  end  
-  
-  if getappdata(src,'newpoint') && ~offlimits
-    [ydat,idx] = sort([ydat y]);
-    xdat = [xdat x];
-    xdat = xdat(idx);
-  else
-    idx = getappdata(src,'idx');
-    if offlimits
-      if idx>1 && idx<length(xdat)
-        xdat(idx) = [];
-        ydat(idx) = [];
-      end
-    else
-      if idx>1 && idx<length(ydat)
-        ydat(idx) = y;
-      end
-      xdat(idx) = x;
-    end
-  end
-
-  clear x y
-  
-  if sidx==3
-    tmp = xdat;
-    xdat = ydat;
-    ydat = tmp;
-  end
-    
-  set(hdat(sidx),'xdata',xdat,'ydata',ydat);
-  
-  h = getappdata(src,'hsmooth');
-  npts = getappdata(src,'npoints');
-  interp = getappdata(src,'interp');
-  x1 = get(h(sidx),'xdata');
-  y1 = get(h(sidx),'ydata');
-  
-  if sidx==3
-    y1 = interp1(xdat,ydat,x1,interp);
-    set(h(sidx),'ydata',y1);
-  else
-    x1 = interp1(ydat,xdat,y1,interp);
-    set(h(sidx),'xdata',x1);
-  end
-  
-  drawnow; drawnow; drawnow
-
-end
-
-function spineplotpoint(src,event)
-  spinetype = getappdata(gca,'spinetype');
-  sidx = strmatch(spinetype,{'x','z','y'});
-  
-  h = getappdata(src,'hlatest');
-  pos = get(gca,'currentpoint');
-  set(h(sidx),'xdata',pos(1,1),'ydata',pos(1,2));
-  drawnow
-end
-
-function toggleSpineCurve(src,event,hPrm,hPreview,hCurve,hSpine)
-  usecurve = get(src,'Value');
-  which = str2num(get(src,'Tag'));
-   
-  usespine = getappdata(hSpine.f,'usespine');
-  usespine(which) = usecurve;
-  setappdata(hSpine.f,'usespine',usespine);
-
-  updatePrm([],[],hPrm,hPreview,hCurve,hSpine);
-  
-end
-
-
-function resetSpineCurve(src,event,hPrm,hPreview,hCurve,hSpine)
-  
-  idx = str2num(get(src,'Tag'));
-  
-  h0 = getappdata(hSpine.f,'hdat_orig');
-  h1 = getappdata(hSpine.f,'hdat');
-  
-  set(h1(idx),'xdata',get(h0(idx),'xdata'));
-  set(h1(idx),'ydata',get(h0(idx),'ydata'));
-  
-  h0 = getappdata(hSpine.f,'hsmooth_orig');
-  h1 = getappdata(hSpine.f,'hsmooth');
-
-  set(h1(idx),'xdata',get(h0(idx),'xdata'));
-  set(h1(idx),'ydata',get(h0(idx),'ydata'));
-
-  updatePrm([],[],hPrm,hPreview,hCurve,hSpine)
-  
-end
-
-function exportSpineCurveToWorkSpace(src,event,fh,th,curvetype)
-  if isempty(th)
-    h = src;
-  else
-    h = th;
-  end
-  bgcol = get(h,'BackgroundColor');
-  set(h,'BackgroundColor',[.2 .8 .2]);
-  varname = get(h,'String');
-
-  hdat = getappdata(fh,'hsmooth');
-  %hdat = getappdata(fh,'hdat');
-  switch curvetype
-    case 'spinex',
-      curve = get(hdat(1),'xdata');
-    case 'spinez',
-      curve = get(hdat(2),'xdata');
-    case 'spiney',
-      curve = get(hdat(3),'ydata');
-  end
-  assignin('base',varname,curve);
-  pause(.2);
-  set(h,'BackgroundColor',bgcol);
-end
-
-% Close
-
-function closeapp(src,event,h,which)
-  % closeall = strcmp(get(src,'Name'),'objDesigner');
-  % if ~isempty(h)
-  if strcmp(which,'main')
-    delete(h.spine.f);
-    delete(h.curve.f);
-    delete(h.preview.f);
-    delete(h.prm.f);
-  else
-    idx = strmatch(which,{'preview','curve','spine'});
-    set(h.prm.showwin(idx),'Value',0);
-    set(h.(which).f,'Visible','Off');
-    fprintf('Close the main window to exit.\n');
-  end
-end
-
-function toggleWindow(src,event,h)
-  doshow = get(src,'Value');
-  which = get(src,'Tag');
-  if doshow
-    set(h.(which).f,'Visible','On');
-  else
-    set(h.(which).f,'Visible','Off');
-  end  
-end
