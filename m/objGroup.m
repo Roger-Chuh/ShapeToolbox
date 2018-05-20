@@ -36,14 +36,22 @@ function [model,groups] = objGroup(model,groups,names,materials)
 % 2016-09-23 - ts - wrote help
 % 2016-11-04 - ts - added the above comment
 % 2017-05-26 - ts - help
+% 2018-05-19 - ts - fixed a bug setting the groups; not repeated
+%                   twice in the horizontal direction anymore
+  
+groups = flipud(groups);
   
 [m,n] = size(groups);
 
 switch model.shape
   case {'sphere','cylinder','revolution','extrusion','worm'}
-    if m~=(2*(model.m-1)) || n~=model.n
-      groups = expmat(groups,ceil([2*(model.m-1)/m model.n/n]));
-      groups = groups(1:(2*(model.m-1)),1:model.n);
+    if m~=(model.m-1) || n~=(2*model.n)
+      groups = expmat(groups,ceil([(model.m-1)/m 2*model.n/n]));
+      groups = groups(1:(model.m-1),1:(2*model.n));
+      
+      % groups = expmat(groups,ceil([2*(model.m-1)/m model.n/n]));
+      % groups = groups(1:(2*(model.m-1)),1:model.n);
+
       % groups = interp2(linspace(0,1,n),...
       %                  linspace(0,1,m)',...
       %                  groups,...
@@ -52,9 +60,11 @@ switch model.shape
       %                  'nearest');
     end
   case {'plane','disk'}
-    if m~=(2*(model.m-1)) || n~=(2*(model.n-1))
-      groups = expmat(groups,ceil([2*(model.m-1)/m (model.n-1)/n]));
-      groups = groups(1:(2*(model.m-1)),1:(model.n-1));
+    if m~=(model.m-1) || n~=(2*(model.n-1))
+      groups = expmat(groups,ceil([(model.m-1)/m 2*(model.n-1)/n]));
+      groups = groups(1:(model.m-1),1:(2*(model.n-1)));
+      
+      
       % groups = interp2(linspace(0,1,n),...
       %                  linspace(0,1,m)',...
       %                  groups,...
@@ -77,6 +87,7 @@ switch model.shape
   %   error('Groups not yet implemented for shape %s.\n',model.shape);
 end
 
+% model.group.groups = groups';
 model.group.groups = groups';
 model.group.groups = model.group.groups(:);
 model.group.idx = unique(groups);

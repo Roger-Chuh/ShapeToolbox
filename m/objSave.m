@@ -228,7 +228,7 @@ for ii = 1:length(s.group.idx)
                s.faces(idx,2) s.faces(idx,2) ...
                s.faces(idx,3) s.faces(idx,3)]');
     else
-      fprintf(fid,'f %d %d %d\n',s.faces(idx,:)');    
+      fprintf(fid,'f %d %d %d\n',s.faces(idx,:)');
     end
   else
     if s.flags.comp_normals
